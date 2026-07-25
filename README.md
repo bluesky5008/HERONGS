@@ -1,4 +1,4 @@
-# HeroProject
+# HERONGS
 
 키움증권 영웅문 REST API 기반의 국내주식(KOSPI/KOSDAQ) 조회·추천·매매 보조 앱.
 
