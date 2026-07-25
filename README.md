@@ -65,6 +65,7 @@ docker compose up -d --build
 
 - 요구사항 명세: [docs/work/20260725-stock-advisor/requirements.md](docs/work/20260725-stock-advisor/requirements.md)
 - SW 설계 문서: [docs/work/20260725-stock-advisor/design.md](docs/work/20260725-stock-advisor/design.md)
+- 배포 설정·검증 기록: [docs/deployment.md](docs/deployment.md)
 - 키움 REST API 원문 문서: 저장소에 포함하지 않습니다. 로컬 `doc/` 폴더에 보관하며 키움증권 API 포털에서 받을 수 있습니다.
 
 ## 보안 원칙
