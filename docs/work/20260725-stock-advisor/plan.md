@@ -138,7 +138,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
 | AC-09 | 단위 검증 | test_recommendation.py::test_evaluate_performance_and_report — 1/5/20일 수익률·적중률 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
-| AC-11 | 전반부 통과 (2026-07-25) | 타겟 0에서 `docker compose up -d --build` 1회로 빌드·기동, 헬스체크 healthy, heartbeat 수신. 검증 중 컨테이너 UTC 시간대 버그 발견 → `TZ=Asia/Seoul` 수정. 잔여: 재부팅 후 자동 재기동 확인(Docker 자동 시작 설정 완료, 다음 재부팅에서 확인) |
+| AC-11 | 사실상 통과 (2026-07-25) | `docker compose up -d --build` 1회 기동 + 재부팅 테스트: 엔진 기동 후 컨테이너 5초 만에 자동 복구(healthy, heartbeat 수신). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 잔여: 다음 재부팅에서 무조작 자동 시작 재확인 |
 | AC-12 | 단위 검증 | test_scheduler_notifier.py::test_backup_creates_snapshot_and_prunes(VACUUM INTO·14일 보관). 실 NAS 전송은 마운트 후 |
 
 ## 설계와 달라진 점 (경미한 변경 — §4.1 기록)
