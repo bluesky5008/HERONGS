@@ -28,7 +28,38 @@
 |---|---|
 | 요구사항 정의 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/requirements.md](docs/work/20260725-stock-advisor/requirements.md) |
 | SW 설계 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/design.md](docs/work/20260725-stock-advisor/design.md) |
-| 구현 | 미착수 |
+| 구현 | 백엔드·PWA·배포 구성 작성 완료, 단위 테스트 62건 통과 — 모의 도메인 실계정 검증 대기 ([구현 계획·검증 상태](docs/work/20260725-stock-advisor/plan.md)) |
+
+## 실행 방법
+
+### 로컬 개발 (백엔드)
+
+```
+cd backend
+python -m venv .venv
+.venv\Scripts\python -m pip install -e .[dev]
+.venv\Scripts\python -m pytest            # 테스트
+.venv\Scripts\python -m uvicorn herongs.main:app --port 8000
+```
+
+설정은 저장소 루트의 `.env.example`을 `.env`로 복사해 입력합니다 (모의투자 appkey/secretkey 필요).
+
+### 프론트엔드 (PWA)
+
+```
+cd frontend
+npm install
+npm run dev     # 개발 서버 (/api → localhost:8000 프록시)
+npm run build   # 산출물 dist/ → 백엔드 static/ 서빙
+```
+
+### 배포 (Docker Compose, FR-18)
+
+```
+docker compose up -d --build
+```
+
+데이터는 `./data/`, 설정은 `.env`로 외부화되어 있어 타겟 이전은 두 항목 복사 + `up`으로 끝납니다. 백업(FR-19)은 매일 03:00 `HERONGS_BACKUP_DIR`로 스냅샷을 전송하고 14일치를 보관합니다.
 
 ## 문서
 

@@ -1,6 +1,7 @@
 # 비밀 정보 — 절대 커밋 금지
 .env
 .env.*
+!.env.example
 *.key
 secrets/
 
@@ -12,15 +13,17 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+*.egg-info/
 
 # Node
 node_modules/
 dist/
 
-# 데이터베이스·로그
+# 데이터베이스·로그·런타임 데이터
 *.db
 *.sqlite3
 logs/
+data/
 
 # IDE / OS
 .vscode/

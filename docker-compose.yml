@@ -1,0 +1,12 @@
+# HERONGS 배포 구성 (FR-18, 설계 §11) — 타겟 이전 = data/ + .env 복사 후 up
+services:
+  herongs-backend:
+    build: .
+    container_name: herongs-backend
+    restart: unless-stopped # 재부팅 후 자동 복구 (AC-11)
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./data:/app/data # SQLite DB·로그 외부화 (설계 §11.2)
+      - ${HERONGS_BACKUP_MOUNT:-./backup}:/backup # NAS 마운트 시 경로 지정 (FR-19)

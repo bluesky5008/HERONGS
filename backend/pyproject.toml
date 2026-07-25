@@ -1,0 +1,28 @@
+[project]
+name = "herongs"
+version = "0.1.0"
+description = "HERONGS — 주식 조회·추천·매매 백엔드 (키움 REST API)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "websockets>=12",
+    "SQLAlchemy>=2.0",
+    "APScheduler>=3.10,<4",
+    "pydantic-settings>=2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["herongs*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
