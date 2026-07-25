@@ -132,7 +132,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-02 | 단위 검증 | test_recommendation.py::test_run_scan_saves_recommendations_with_rationale — 전략별 N개 이하 + 근거 |
 | AC-03 | 단위 검증 | test_recommendation.py::test_opinions_saved_and_stop_loss_alerts — 3관점 의견+근거, test_api.py 분석 API |
 | AC-04 | 단위 검증 | test_orders.py::test_confirm_requires_valid_preview, test_api.py::test_confirm_without_preview_via_api — confirm이 유일한 전송 경로, preview 필수 |
-| AC-05 | **미수행** | Node 미설치 → PWA 빌드·모바일 뷰포트 확인 불가. 코드는 모바일 우선 CSS로 작성 |
+| AC-05 | 빌드·서빙 통과, 실기기 확인 대기 | Node 24.18 설치(2026-07-25) → `npm run build` 성공(tsc 타입 검사 포함), PWA 아이콘·서비스워커 생성, 백엔드 static 서빙에서 `/`·manifest·API 동일 오리진 200 확인. 핸드폰 실기기 뷰포트·홈 화면 설치 확인은 사용자 수행 필요 |
 | AC-06 | 단위 검증 + 채널 실검증 | 손절 오버라이드(test_scoring.py::test_override_stop_loss_beats_score) 단위 통과. 텔레그램 채널 실검증 완료(2026-07-25): sendMessage 테스트 + 기동 heartbeat 자동 발송 수신(alert_log sent=1, @HERONGS_ALARM_BOT → chat 8366481238). 손절 이벤트 실발송은 보유 종목 발생 후 확인 |
 | AC-07 | 단위 검증 | test_collector.py::test_scan_end_to_end_excludes_halted, test_hygiene_filter_drops_flagged_and_illiquid |
 | AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
@@ -152,7 +152,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 ## 남은 사항 (후속 작업)
 
 - [ ] 키움 모의투자 appkey/secretkey 발급 후: AC-01 실검증, 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
-- [ ] Node.js 설치 후: `npm install && npm run build`, 모바일 뷰포트 확인 (AC-05)
+- [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25). 남은 것: 핸드폰 실기기에서 뷰포트·홈 화면 설치 확인 (AC-05 완결 조건)
 - [ ] Docker Desktop 설치 후: `docker compose up -d --build`, 재부팅 자동 기동 확인 (AC-11)
 - [ ] NAS(DS220j) SMB 마운트 경로 설정 후: 백업 실전송 확인 (AC-12)
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
