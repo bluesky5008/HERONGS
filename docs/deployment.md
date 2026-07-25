@@ -35,6 +35,8 @@
 | Docker 배포 검증 | `docker compose up -d --build` 1회로 빌드(PWA 멀티스테이지 포함)·기동, 헬스체크 `healthy`, heartbeat 수신 | **AC-11 전반부 통과** (2026-07-25). 시간대 버그 발견·수정: 컨테이너 UTC → `ENV TZ=Asia/Seoul` (스케줄러 KST 필수) |
 | Docker 자동 시작 | settings AutoStart=true + HKCU Run 키 + 시작 폴더 바로가기 | 1차 재부팅 테스트에서 Run 키 자동 시작 실패(StartupApproved 값 비정상 01 → 항목 제거) → 시작 폴더 바로가기 추가(이중화). **다음 재부팅에서 무조작 자동 시작 재확인 필요** |
 | 재부팅 자동 복구 (컨테이너) | 엔진 기동 후 5초 만에 `herongs-backend` 자동 재기동 → healthy, heartbeat 발송(23:58 KST) | **검증 완료** — `restart: unless-stopped` 동작. 잔여 리스크는 Docker Desktop 자동 시작뿐 |
+| 포트 8000 영구 예약 | `netsh int ipv4 add excludedportrange protocol=tcp startport=8000 numberofports=1 store=persistent` (winnat 중지 상태에서) | **재부팅 후 Hyper-V 동적 예약 범위(7981-8080)가 8000을 점유 → 포트 게시 실패** 문제 해결(2026-07-26). ⚠️ **타겟 1 이관 시 노트북에서도 동일 예약 필수** (§6-A에 반영) |
+| 방화벽 인바운드 | "HERONGS PWA (TCP 8000)" 규칙 — Private 프로파일 허용 | 같은 Wi-Fi 핸드폰 접속용 |
 
 ### 타겟 0에서 남은 단계
 
@@ -80,7 +82,7 @@ docker compose up -d --build
 
 선행 조건: 타겟 0에서 AC-11(Docker 기동·재부팅 자동 복구) 검증 완료.
 
-1. **노트북 준비**: Docker Desktop(+WSL2) 설치, git clone `https://github.com/bluesky5008/HERONGS`
+1. **노트북 준비**: Docker Desktop(+WSL2) 설치, git clone `https://github.com/bluesky5008/HERONGS`, **포트 8000 영구 예약**(관리자: `net stop winnat` → `netsh int ipv4 add excludedportrange protocol=tcp startport=8000 numberofports=1 store=persistent` → `net start winnat` — Hyper-V 동적 포트 점유 방지), 방화벽 인바운드 TCP 8000 허용
 2. 타겟 0: 컨테이너/서버 중지 → `data/` 디렉터리와 `.env` 파일을 노트북의 저장소 루트로 복사 (`.env`는 git에 없으므로 반드시 수동 복사)
 3. 노트북: `docker compose up -d --build` → 텔레그램 "백엔드 기동" heartbeat 수신 확인
 4. 노트북 운영 수칙 적용(설계 §11.3): 절전 해제(AC 연결 시), 덮개 닫아도 유지, Docker Desktop 자동 시작, Windows 업데이트 활성 시간을 장중(09:00~15:30)으로 설정
