@@ -1,0 +1,29 @@
+# 비밀 정보 — 절대 커밋 금지
+.env
+.env.*
+*.key
+secrets/
+
+# 키움 REST API 원문 문서 (로컬 보관, 저장소 미포함)
+doc/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# 데이터베이스·로그
+*.db
+*.sqlite3
+logs/
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
