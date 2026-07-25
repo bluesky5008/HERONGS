@@ -26,8 +26,8 @@
 
 | 단계 | 상태 |
 |---|---|
-| 요구사항 정의 | 초안 작성 완료 — [docs/work/20260725-stock-advisor/requirements.md](docs/work/20260725-stock-advisor/requirements.md) |
-| SW 설계 | 초안 작성 완료 — [docs/work/20260725-stock-advisor/design.md](docs/work/20260725-stock-advisor/design.md) |
+| 요구사항 정의 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/requirements.md](docs/work/20260725-stock-advisor/requirements.md) |
+| SW 설계 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/design.md](docs/work/20260725-stock-advisor/design.md) |
 | 구현 | 미착수 |
 
 ## 문서
