@@ -30,12 +30,14 @@
 | PWA 배포 | `dist/` → `backend/static/` 복사 | 백엔드가 `/`에서 정적 서빙. Docker 빌드에서는 멀티스테이지가 자동 수행 |
 | 설정 파일 | 저장소 루트 `.env` (키움 모의투자 키, 텔레그램 토큰/chat_id) | **gitignore 처리 — 커밋 금지.** 템플릿은 `.env.example` |
 | 텔레그램 | @HERONGS_ALARM_BOT ↔ chat_id 8366481238 | 기동 heartbeat 실수신 확인 (§11.5 장애 인지 규칙 가동) |
-| WSL2 사전 조건 | BIOS 가상화(VT-x) 활성 확인, Windows 기능 활성화(가상 머신 플랫폼 + WSL, DISM) | **재부팅 후 반영** |
-| Docker Desktop | 4.83.0 (winget `Docker.DockerDesktop`) | 설치 완료 — **재부팅 후 첫 실행·AC-11 검증 대기** |
+| WSL2 사전 조건 | BIOS 가상화(VT-x) 활성 확인, Windows 기능 활성화(가상 머신 플랫폼 + WSL, DISM) | 재부팅 후 반영 완료 |
+| Docker Desktop | 4.83.0 (winget), 엔진 29.6.2 | 설치·기동 확인 완료 |
+| Docker 배포 검증 | `docker compose up -d --build` 1회로 빌드(PWA 멀티스테이지 포함)·기동, 헬스체크 `healthy`, heartbeat 수신 | **AC-11 전반부 통과** (2026-07-25). 시간대 버그 발견·수정: 컨테이너 UTC → `ENV TZ=Asia/Seoul` (스케줄러 KST 필수) |
+| Docker 자동 시작 | settings AutoStart=true + HKCU Run 키 등록 | 재부팅 후 컨테이너 자동 복구의 선행 조건. **다음 재부팅에서 AC-11 후반부(자동 재기동) 최종 확인** |
 
 ### 타겟 0에서 남은 단계
 
-- **재부팅** → Docker Desktop 첫 실행(WSL2 엔진 초기화) → `docker compose up -d --build` → AC-11 검증(헬스체크 + 재부팅 자동 복구)
+- 재부팅 1회 → 아무 조작 없이 텔레그램 "백엔드 기동" 수신 확인 = AC-11 후반부(자동 재기동) 완료
 - 장중 실검증 (AC-02 스캔·알림, AC-04 모의 주문 E2E) — 다음 거래일
 
 타겟 0에서 위까지 완료되면 §6-A 절차로 노트북(타겟 1) 이관.

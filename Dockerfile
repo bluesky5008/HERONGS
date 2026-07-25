@@ -16,6 +16,8 @@ COPY backend/herongs ./herongs
 RUN pip install --no-cache-dir .
 COPY --from=frontend /build/dist ./static
 
+# 스케줄러(장전 08:30/마감 15:40/백업 03:00)와 장 운영시간 판정은 KST 기준 (NFR-04)
+ENV TZ=Asia/Seoul
 ENV HERONGS_DB_PATH=/app/data/herongs.db
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
