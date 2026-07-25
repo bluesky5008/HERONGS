@@ -36,7 +36,7 @@
 | Docker 자동 시작 | settings AutoStart=true + HKCU Run 키 + 시작 폴더 바로가기 | 1차 재부팅 테스트에서 Run 키 자동 시작 실패(StartupApproved 값 비정상 01 → 항목 제거) → 시작 폴더 바로가기 추가(이중화). **다음 재부팅에서 무조작 자동 시작 재확인 필요** |
 | 재부팅 자동 복구 (컨테이너) | 엔진 기동 후 5초 만에 `herongs-backend` 자동 재기동 → healthy, heartbeat 발송(23:58 KST) | **검증 완료** — `restart: unless-stopped` 동작. 잔여 리스크는 Docker Desktop 자동 시작뿐 |
 | 포트 8000 영구 예약 | `netsh int ipv4 add excludedportrange protocol=tcp startport=8000 numberofports=1 store=persistent` (winnat 중지 상태에서) | **재부팅 후 Hyper-V 동적 예약 범위(7981-8080)가 8000을 점유 → 포트 게시 실패** 문제 해결(2026-07-26). ⚠️ **타겟 1 이관 시 노트북에서도 동일 예약 필수** (§6-A에 반영) |
-| 방화벽 인바운드 | "HERONGS PWA (TCP 8000)" 규칙 — Private 프로파일 허용 | 같은 Wi-Fi 핸드폰 접속용. **Wi-Fi가 '공용'으로 분류돼 있으면 차단됨** → 집 네트워크는 Private으로 변경 필요 (`Set-NetConnectionProfile`, 2026-07-26 적용) |
+| 방화벽 인바운드 | "HERONGS PWA (TCP 8000)" 규칙 — **모든 프로파일(Any)** 허용 | 같은 Wi-Fi 핸드폰 접속용. Private 전용 규칙으로는 **차단됨** — Docker Desktop(WSL2) 인바운드가 Hyper-V 가상 스위치 경유라 Wi-Fi의 Private 프로파일과 매칭되지 않음. 프로파일 Any로 변경해 해결(2026-07-26, 폰 접속 확인). 외부 노출은 없음 — 공유기 뒤 사설망 + 포트포워딩 금지 원칙 유지 |
 
 ### 타겟 0에서 남은 단계
 
