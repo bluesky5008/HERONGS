@@ -129,17 +129,28 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC | 상태 | 증거 |
 |---|---|---|
 | AC-01 | **통과** (2026-07-25 실검증) | 모의 도메인에서 au10001 토큰 발급 → 005930 분석 E2E 성공: kt00018·ka10131(4페이지 연속조회)·ka10001·ka10081 전부 200, 일봉 600건 적재(2024-02-02~2026-07-24), 3관점 의견 저장. TR당 1초 스로틀 동작 확인(로그 타임스탬프), 유량 오류(1700/1701) 미발생 |
-| AC-02 | 단위 검증 | test_recommendation.py::test_run_scan_saves_recommendations_with_rationale — 전략별 N개 이하 + 근거 |
+| AC-02 | **통과** (2026-07-28 실검증) | 단위: test_run_scan_saves_recommendations_with_rationale. 실운영: 07-27·07-28 이틀간 장중 자동 스캔 — 추천 498건 저장(근거 JSON 포함, long 340/swing 158), 신규 추천 텔레그램 50건 전량 발송(sent=1). 주말(07-26)·장외 자동 스캔 없음 → 휴장·장시간 인지(NFR-04) 실확인 |
 | AC-03 | 단위 검증 | test_recommendation.py::test_opinions_saved_and_stop_loss_alerts — 3관점 의견+근거, test_api.py 분석 API |
 | AC-04 | 단위 검증 | test_orders.py::test_confirm_requires_valid_preview, test_api.py::test_confirm_without_preview_via_api — confirm이 유일한 전송 경로, preview 필수 |
 | AC-05 | **통과** (2026-07-26 실기기 확인) | `npm run build` 성공(tsc 포함), Docker 컨테이너 static 서빙, 핸드폰(같은 Wi-Fi)에서 접속·렌더 확인. 접속 장애 2건 해결: ① Hyper-V 동적 포트 예약의 8000 점유 → 영구 예약 ② 방화벽 Private 전용 규칙이 WSL2 인바운드 경로와 미매칭 → Any 프로파일. 주문 확인 흐름의 모바일 검증은 AC-04 장중 E2E에서 함께 수행 |
 | AC-06 | 단위 검증 + 채널 실검증 | 손절 오버라이드(test_scoring.py::test_override_stop_loss_beats_score) 단위 통과. 텔레그램 채널 실검증 완료(2026-07-25): sendMessage 테스트 + 기동 heartbeat 자동 발송 수신(alert_log sent=1, @HERONGS_ALARM_BOT → chat 8366481238). 손절 이벤트 실발송은 보유 종목 발생 후 확인 |
 | AC-07 | 단위 검증 | test_collector.py::test_scan_end_to_end_excludes_halted, test_hygiene_filter_drops_flagged_and_illiquid |
 | AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
-| AC-09 | 단위 검증 | test_recommendation.py::test_evaluate_performance_and_report — 1/5/20일 수익률·적중률 |
+| AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
-| AC-11 | 사실상 통과 (2026-07-25) | `docker compose up -d --build` 1회 기동 + 재부팅 테스트: 엔진 기동 후 컨테이너 5초 만에 자동 복구(healthy, heartbeat 수신). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 잔여: 다음 재부팅에서 무조작 자동 시작 재확인 |
-| AC-12 | 단위 검증 | test_scheduler_notifier.py::test_backup_creates_snapshot_and_prunes(VACUUM INTO·14일 보관). 실 NAS 전송은 마운트 후 |
+| AC-11 | 사실상 통과 (2026-07-25) | `docker compose up -d --build` 1회 기동 + 재부팅 테스트: 엔진 기동 후 컨테이너 5초 만에 자동 복구(healthy, heartbeat 수신). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 잔여: 다음 재부팅에서 무조작 자동 시작 재확인. 07-26 00:16 기동 후 2일+ 연속 healthy 무중단(30초 헬스체크 통과 지속, 2026-07-28 확인) |
+| AC-12 | 단위 검증 | test_scheduler_notifier.py::test_backup_creates_snapshot_and_prunes(VACUUM INTO·14일 보관). 실 NAS 전송은 마운트 후. 타겟 0은 `HERONGS_BACKUP_DIR` 빈 값 → 03:00 잡이 설계대로 "백업 생략" 동작 중임을 확인(2026-07-28, 실패 아님) |
+
+## 운영 관찰 기록 (2026-07-28, 타겟 0 상시 구동 3일차)
+
+DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
+
+- 컨테이너 `herongs-backend`: 07-26 00:16 재생성 후 2일+ 연속 Up (healthy), 재시작·OOM 없음
+- 스케줄러 KST 실동작: 아침 브리핑(08:30)·마감 브리핑(15:40)이 07-27(월)·07-28(화) 각 1건씩 발송(sent=1). 주말 07-26(일)에는 브리핑·자동 스캔 모두 없음 — 휴장 인지 정상 (07-26의 추천 2건은 00:31/21:49 수동 `POST /api/scan` 트리거)
+- 장중 스캔: 07-27·07-28 09~15시에 new_recommendation 알림 각 25건, 발송 실패 0건
+- 데이터 적재: daily_price 951,016행(1,772종목, ~2026-07-28), market_regime 3일 연속 bear 판정, 성과 평가(1일) 187건
+- 백업: `backup/` 비어 있음 — 원인은 `HERONGS_BACKUP_DIR` 미설정으로 설계상 "생략" 분기(backup.py). 백업 실패·경고 아님. NAS 마운트 시(또는 타겟 0에서 `/backup` 지정 시) 활성화됨
+- 미발송 1건: 07-25 22:45 info(sent=0) — 텔레그램 연동 완료 이전 시점의 기동 알림
 
 ## 설계와 달라진 점 (경미한 변경 — §4.1 기록)
 
@@ -151,9 +162,10 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 
 ## 남은 사항 (후속 작업)
 
-- [ ] 키움 모의투자 appkey/secretkey 발급 후: AC-01 실검증, 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
-- [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25). 남은 것: 핸드폰 실기기에서 뷰포트·홈 화면 설치 확인 (AC-05 완결 조건)
-- [ ] Docker Desktop 설치 후: `docker compose up -d --build`, 재부팅 자동 기동 확인 (AC-11)
-- [ ] NAS(DS220j) SMB 마운트 경로 설정 후: 백업 실전송 확인 (AC-12)
+- [ ] ~~키 발급~~·~~AC-01 실검증~~(2026-07-25 완료). 잔여: 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
+- [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25) + 핸드폰 실기기 접속·렌더 확인 (2026-07-26, AC-05 통과)
+- [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (2026-07-25~26, AC-11 사실상 통과 — 무조작 재부팅 재확인만 잔여)
+- [ ] NAS(DS220j) SMB 마운트 경로 설정 후: 백업 실전송 확인 (AC-12). 타겟 0은 backup_dir 미설정으로 생략 동작 중(2026-07-28 확인) — 조기 검증하려면 `.env`에 `HERONGS_BACKUP_DIR=/backup` 지정
+- [ ] 장중 주문 E2E (AC-04): preview→confirm 실주문(모의 도메인)·미체결/정정/취소 — 아직 order_log 0건
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
 - [x] 텔레그램 봇 생성·연동 (2026-07-25 완료: @HERONGS_ALARM_BOT, heartbeat 실수신 확인). 강제 종료 시에는 종료 알림이 발송되지 않음(정상 종료에서만 발송) — 운영 시 참고
