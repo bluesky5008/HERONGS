@@ -105,4 +105,4 @@ docker compose up -d --build
 - [x] 실계좌 모드는 `.env`의 `HERONGS_TRADING_MODE=real` 명시 전환으로만 (기본 mock)
 - [x] 로그에서 키·토큰·계좌번호 마스킹
 - [ ] 인터넷 직접 노출 금지 — 포트포워딩 없이 Tailscale만 (Tailscale 설치 시 방화벽 규칙 함께 점검)
-- [ ] PWA PIN 설정 (`HERONGS_PIN`) — 외부 접속 개통 전 필수
+- [x] PWA PIN 설정 (`HERONGS_PIN`) — 숫자 6자리 설정·인증 동작 검증 완료(2026-07-29: 미로그인 401 / 오PIN 401 / 정PIN 200). 후속: 로그인 실패 시도 제한(plan.md 후속 작업)
