@@ -91,7 +91,7 @@ docker compose up -d --build
    - 정전 후 자동 재시동: `sudo pmset -a autorestart 1` (에너지 설정의 "정전 후 자동으로 시작" 과 동일)
    - macOS 자동 업데이트의 자동 재시동 끄기 → 업데이트는 장외 시간에 수동 적용
    - **FileVault 주의**: 켜져 있으면 재부팅 후 로그인 전까지 Docker 미기동. 무인 복구가 필요하면 자동 로그인(FileVault 해제 필요)과의 보안 트레이드오프를 결정할 것. 미결정 시 수칙: "재부팅은 사람이 있을 때만"
-5. **Tailscale 개통**(상시 구동 기기이므로 여기서): 개통 전 `.env`에 `HERONGS_PIN` 설정 필수(§7 체크리스트) → Tailscale Mac 앱 설치·로그인 → 핸드폰에서 `http://<맥미니 Tailscale 주소>:8000` PWA 접속 확인. 같은 Wi-Fi 로컬 접속은 macOS 방화벽 허용 프롬프트만 수락하면 됨
+5. **Tailscale 로그인**: 2026-07-29 타겟 0에서 조기 개통 완료(PIN 설정·폰 셀룰러 접속 검증됨 — §7). 맥미니에서는 Tailscale Mac 앱 설치 후 **같은 계정(bluesky5008@) 로그인**만 하면 tailnet 자동 합류 → 핸드폰 PWA 접속 주소를 맥미니의 MagicDNS 주소(`http://<맥미니이름>.taila04eb1.ts.net:8000`)로 변경. 같은 Wi-Fi 로컬 접속은 macOS 방화벽 허용 프롬프트만 수락하면 됨
 6. **NAS 백업 개통**: Finder에서 `smb://DS220j.local/<공유>` 연결(마운트 경로 `/Volumes/<공유명>`) + 로그인 항목에 추가(자동 마운트) → `.env`에 `HERONGS_BACKUP_MOUNT=/Volumes/<공유명>/herongs` 지정 → `docker compose up -d` 재기동 → 다음날 새벽 `herongs-YYYYMMDD.db` 생성 확인 (AC-12). 무인 재부팅까지 견고하게 하려면 로그인 항목 대신 autofs 구성(4단계 FileVault 결정과 묶어서 선택)
 7. 재부팅 테스트: 맥미니 재부팅 후 무조작으로 컨테이너 자동 기동 + heartbeat 수신 + NAS 마운트 살아있는지 확인
 8. 이관 완료 후: 타겟 0은 개발 전용으로 복귀(상시 구동 안 함). 코드 변경은 git push → 맥미니에서 `git pull && docker compose up -d --build`
@@ -104,5 +104,5 @@ docker compose up -d --build
 - [x] `.env.example`(커밋되는 템플릿)에는 실제 값을 넣지 않는다 ⚠️ 두 차례 실수 이력 있음 — 커밋 전 확인 필수
 - [x] 실계좌 모드는 `.env`의 `HERONGS_TRADING_MODE=real` 명시 전환으로만 (기본 mock)
 - [x] 로그에서 키·토큰·계좌번호 마스킹
-- [ ] 인터넷 직접 노출 금지 — 포트포워딩 없이 Tailscale만 (Tailscale 설치 시 방화벽 규칙 함께 점검)
+- [x] 인터넷 직접 노출 금지 — 포트포워딩 없이 Tailscale만. 타겟 0에서 조기 개통(2026-07-29): PC `yongs-second`(100.105.106.104) + 폰, 셀룰러망에서 `http://yongs-second.taila04eb1.ts.net:8000` 접속·PIN 로그인 성공. 포트포워딩 없음 유지
 - [x] PWA PIN 설정 (`HERONGS_PIN`) — 숫자 6자리 설정·인증 동작 검증 완료(2026-07-29: 미로그인 401 / 오PIN 401 / 정PIN 200). 후속: 로그인 실패 시도 제한(plan.md 후속 작업)
