@@ -139,7 +139,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
 | AC-11 | **통과** (2026-07-29 재부팅 재확인) | `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29 21시경 재부팅 → 자동 기동·healthy, 사용자 확인 + docker inspect StartedAt 확인). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 07-26~29 상시 구동 중 재시작·OOM 없음 |
-| AC-12 | 단위 검증 | test_scheduler_notifier.py::test_backup_creates_snapshot_and_prunes(VACUUM INTO·14일 보관). 실 NAS 전송은 마운트 후. 타겟 0은 `HERONGS_BACKUP_DIR` 빈 값 → 03:00 잡이 설계대로 "백업 생략" 동작 중임을 확인(2026-07-28, 실패 아님) |
+| AC-12 | 부분 실검증 (2026-07-29) | 단위: test_backup_creates_snapshot_and_prunes. 타겟 0에서 `HERONGS_BACKUP_DIR=/backup` 조기 활성화 → run_backup 실행으로 `backup/herongs-20260729.db`(70MB, VACUUM INTO) 생성 확인. 잔여: 03:00 자동 생성 확인(내일) + 맥북 이관 후 NAS 실전송(§6-A 6단계)으로 완결 |
 
 ## 운영 관찰 기록 (2026-07-28, 타겟 0 상시 구동 3일차)
 
@@ -165,7 +165,7 @@ DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
 - [ ] ~~키 발급~~·~~AC-01 실검증~~(2026-07-25 완료). 잔여: 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
 - [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25) + 핸드폰 실기기 접속·렌더 확인 (2026-07-26, AC-05 통과)
 - [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (AC-11 통과 — 2026-07-29 무조작 재부팅 자동 기동 재확인 완료)
-- [ ] NAS(DS220j) SMB 마운트 경로 설정 후: 백업 실전송 확인 (AC-12). 타겟 0은 backup_dir 미설정으로 생략 동작 중(2026-07-28 확인) — 조기 검증하려면 `.env`에 `HERONGS_BACKUP_DIR=/backup` 지정
+- [ ] NAS(DS220j) SMB 마운트 후 백업 실전송 확인 (AC-12 완결 — 맥북 이관 시). 타겟 0 로컬 백업은 2026-07-29 조기 활성화·스냅샷 생성 확인됨. `.env` 편집 시 주의: PS5.1 `Set-Content -Encoding utf8`은 BOM을 붙여 첫 변수를 깨뜨림 → BOM 없는 UTF-8로 저장할 것
 - [ ] 장중 주문 E2E (AC-04): preview→confirm 실주문(모의 도메인)·미체결/정정/취소 — 아직 order_log 0건
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
 - [x] 텔레그램 봇 생성·연동 (2026-07-25 완료: @HERONGS_ALARM_BOT, heartbeat 실수신 확인). 강제 종료 시에는 종료 알림이 발송되지 않음(정상 종료에서만 발송) — 운영 시 참고
