@@ -138,7 +138,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
 | AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
-| AC-11 | 사실상 통과 (2026-07-25) | `docker compose up -d --build` 1회 기동 + 재부팅 테스트: 엔진 기동 후 컨테이너 5초 만에 자동 복구(healthy, heartbeat 수신). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 잔여: 다음 재부팅에서 무조작 자동 시작 재확인. 07-26 00:16 기동 후 2일+ 연속 healthy 무중단(30초 헬스체크 통과 지속, 2026-07-28 확인) |
+| AC-11 | **통과** (2026-07-29 재부팅 재확인) | `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29 21시경 재부팅 → 자동 기동·healthy, 사용자 확인 + docker inspect StartedAt 확인). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 07-26~29 상시 구동 중 재시작·OOM 없음 |
 | AC-12 | 단위 검증 | test_scheduler_notifier.py::test_backup_creates_snapshot_and_prunes(VACUUM INTO·14일 보관). 실 NAS 전송은 마운트 후. 타겟 0은 `HERONGS_BACKUP_DIR` 빈 값 → 03:00 잡이 설계대로 "백업 생략" 동작 중임을 확인(2026-07-28, 실패 아님) |
 
 ## 운영 관찰 기록 (2026-07-28, 타겟 0 상시 구동 3일차)
@@ -164,7 +164,7 @@ DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
 
 - [ ] ~~키 발급~~·~~AC-01 실검증~~(2026-07-25 완료). 잔여: 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
 - [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25) + 핸드폰 실기기 접속·렌더 확인 (2026-07-26, AC-05 통과)
-- [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (2026-07-25~26, AC-11 사실상 통과 — 무조작 재부팅 재확인만 잔여)
+- [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (AC-11 통과 — 2026-07-29 무조작 재부팅 자동 기동 재확인 완료)
 - [ ] NAS(DS220j) SMB 마운트 경로 설정 후: 백업 실전송 확인 (AC-12). 타겟 0은 backup_dir 미설정으로 생략 동작 중(2026-07-28 확인) — 조기 검증하려면 `.env`에 `HERONGS_BACKUP_DIR=/backup` 지정
 - [ ] 장중 주문 E2E (AC-04): preview→confirm 실주문(모의 도메인)·미체결/정정/취소 — 아직 order_log 0건
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
