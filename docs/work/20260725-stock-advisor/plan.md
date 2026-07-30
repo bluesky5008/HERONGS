@@ -138,8 +138,8 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
 | AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
-| AC-11 | **통과** (2026-07-29 재부팅 재확인) | `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29 21시경 재부팅 → 자동 기동·healthy, 사용자 확인 + docker inspect StartedAt 확인). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 07-26~29 상시 구동 중 재시작·OOM 없음 |
-| AC-12 | 부분 실검증 (2026-07-29) | 단위: test_backup_creates_snapshot_and_prunes. 타겟 0에서 `HERONGS_BACKUP_DIR=/backup` 조기 활성화 → run_backup 실행으로 `backup/herongs-20260729.db`(70MB, VACUUM INTO) 생성 확인. 03:00 자동 생성 확인(2026-07-30, `herongs-20260730.db` 80MB) — 백업 로직 완결. 잔여: 맥미니 이관 후 NAS 실전송(§6-A 6단계)만 |
+| AC-11 | **통과** (타겟 0: 2026-07-29 / 타겟 1: 2026-07-30 재검증) | 타겟 0: `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29). 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. **타겟 1(맥미니) 이관 후 재검증(2026-07-30)**: 5회 재부팅 반복 검증 끝에 무조작 통과 — 부팅 29초 만에 자동 로그인 → NAS 키체인 마운트(창 없음) → 컨테이너 기동 → heartbeat 발송. Docker 자동 시작·NAS 마운트 경쟁 등 발견 이슈와 해결은 deployment.md §8 수행 기록 참조 |
+| AC-12 | **통과** (2026-07-30 완결) | 단위: test_backup_creates_snapshot_and_prunes. 타겟 0 로컬 백업 검증(07-29~30). **NAS 실전송 완결(2026-07-30)**: 맥미니에서 run_backup 실행 → NAS `backup/herongs` 공유에 `herongs-20260730.db`(83MB, VACUUM INTO) 생성 확인. 경로는 tailnet 경유 SMB(설계 변경 ⑥) — 컨테이너 `/backup` → 호스트 `/Volumes/backup/herongs` → NAS. 이후 매일 03:00 자동 |
 
 ## 운영 관찰 기록 (2026-07-28, 타겟 0 상시 구동 3일차)
 
@@ -159,13 +159,15 @@ DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
 3. **조건검색(ka10171/10172)은 REST가 아닌 WebSocket 경유**: 스펙 확인 결과 `/api/dostk/websocket` 전용(CNSRLST/CNSRREQ). 설계 §2의 RealtimeGateway 책임과 일치하며, Collector는 RealtimeGateway.run_condition을 주입받아 사용.
 4. **조회성 API 3종 추가**: `POST /api/scan`(수동 스캔 트리거, AC-02 확인용), `GET /api/stocks/{code}/prices`(FR-06 차트 데이터), `POST /api/auth/login` + 관심종목 CRUD(FR-10, §7 PIN 세션). §4.2에 없던 항목이나 공개 계약 성격 변경 없음.
 5. **장전 브리핑의 "예상체결 기반 갭 상위 종목" 제외**: 설계 §4.1 TR 매핑에 예상체결 TR이 없어 v1 브리핑은 전일 요약+국면+직전 스캔 요약으로 구성. 후속 작업으로 기록.
+6. **NAS 백업 경로: 같은 LAN SMB → Tailscale 경유 SMB** (2026-07-30): 이관 중 NAS(DS220j)가 백엔드와 **다른 인터넷 회선**에 있음이 확인되어(공인 IP 상이) 설계 §11.4의 `smb://DS220j.local` 같은-LAN 가정을 폐기. NAS에 Synology Tailscale 패키지를 설치해 tailnet 합류(100.123.75.14) 후 SMB는 tailnet으로만 통신 — 포트 노출 금지 원칙(NFR-01)에 부합. 상세는 deployment.md §8.
 
 ## 남은 사항 (후속 작업)
 
 - [ ] ~~키 발급~~·~~AC-01 실검증~~(2026-07-25 완료). 잔여: 유량 제한 실측(Q-03 → setting 보정), WS 동시 등록 한도 실측(Q-02), 조건검색 연속조회 필요 여부 확인
 - [x] Node.js 24.18 설치·PWA 빌드·백엔드 서빙 검증 (2026-07-25) + 핸드폰 실기기 접속·렌더 확인 (2026-07-26, AC-05 통과)
 - [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (AC-11 통과 — 2026-07-29 무조작 재부팅 자동 기동 재확인 완료)
-- [ ] NAS(DS220j) SMB 마운트 후 백업 실전송 확인 (AC-12 완결 — 맥미니 이관 시). 타겟 0 로컬 백업은 2026-07-29 조기 활성화·스냅샷 생성 확인됨. `.env` 편집 시 주의: PS5.1 `Set-Content -Encoding utf8`은 BOM을 붙여 첫 변수를 깨뜨림 → BOM 없는 UTF-8로 저장할 것
+- [x] ~~NAS(DS220j) SMB 마운트 후 백업 실전송 확인~~ (2026-07-30 완결 — AC-12 통과, tailnet 경유. deployment.md §8) `.env` 편집 시 주의: PS5.1 `Set-Content -Encoding utf8`은 BOM을 붙여 첫 변수를 깨뜨림 → BOM 없는 UTF-8로 저장할 것
+- [x] 맥미니(타겟 1) 이관 — 2026-07-30 완료: 실행환경 구성 → `.env`+`data/` 이관 → 운영 기동 → 재부팅 무조작 검증(AC-11 재검증). 이관 중 발견·수정: 텔레그램 봇 토큰이 httpx INFO 로그에 노출 → 마스킹 등록 추가(커밋 6ffbc0c, 테스트 63건)
 - [ ] 장중 주문 E2E (AC-04): preview→confirm 실주문(모의 도메인)·미체결/정정/취소 — 아직 order_log 0건
 - [ ] **로그인 실패 시도 제한**: `/api/auth/login`에 무차별 대입 방어(예: 5회 실패 시 지연/잠금) 추가. 현재는 시도 제한 없음 — PIN(숫자 6자리, 2026-07-29 설정)이 Tailscale 뒤 2차 방벽이라 급하지 않으나 보안 변경이므로 wf-design 경량 검토 후 구현 (§7 보강)
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
