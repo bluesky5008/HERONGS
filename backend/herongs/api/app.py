@@ -27,6 +27,7 @@ def create_app(
     register_secret(settings.kiwoom_appkey)
     register_secret(settings.kiwoom_secretkey)
     register_secret(settings.account_no)
+    register_secret(settings.telegram_bot_token)  # httpx가 요청 URL을 INFO 로그로 남김
     init_db(settings.db_path)
 
     import herongs.db as dbmod

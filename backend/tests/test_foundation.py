@@ -34,6 +34,25 @@ def test_secret_masking():
     logsetup._SECRETS.clear()
 
 
+def test_create_app_masks_telegram_token():
+    # 텔레그램 토큰이 httpx 요청 URL 로그에 노출되지 않도록 등록되는지 (NFR-01/05 회귀)
+    from herongs.api.app import create_app
+
+    s = Settings(
+        kiwoom_appkey="AK", kiwoom_secretkey="SK",
+        telegram_bot_token="1234567890:BOTSECRETTOKEN",
+        db_path=":memory:", _env_file=None,
+    )
+    create_app(settings=s, with_scheduler=False)
+    rec = logging.LogRecord(
+        "httpx", logging.INFO, "", 0,
+        "HTTP Request: POST https://api.telegram.org/bot1234567890:BOTSECRETTOKEN/sendMessage", (), None,
+    )
+    SecretMaskFilter().filter(rec)
+    assert "BOTSECRETTOKEN" not in rec.getMessage()
+    logsetup._SECRETS.clear()
+
+
 def test_db_tables_created():
     engine = init_db(":memory:")
     tables = set(inspect(engine).get_table_names())
