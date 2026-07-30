@@ -139,7 +139,7 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
 | AC-11 | **통과** (2026-07-29 재부팅 재확인) | `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29 21시경 재부팅 → 자동 기동·healthy, 사용자 확인 + docker inspect StartedAt 확인). 검증 중 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. 07-26~29 상시 구동 중 재시작·OOM 없음 |
-| AC-12 | 부분 실검증 (2026-07-29) | 단위: test_backup_creates_snapshot_and_prunes. 타겟 0에서 `HERONGS_BACKUP_DIR=/backup` 조기 활성화 → run_backup 실행으로 `backup/herongs-20260729.db`(70MB, VACUUM INTO) 생성 확인. 잔여: 03:00 자동 생성 확인(내일) + 맥미니 이관 후 NAS 실전송(§6-A 6단계)으로 완결 |
+| AC-12 | 부분 실검증 (2026-07-29) | 단위: test_backup_creates_snapshot_and_prunes. 타겟 0에서 `HERONGS_BACKUP_DIR=/backup` 조기 활성화 → run_backup 실행으로 `backup/herongs-20260729.db`(70MB, VACUUM INTO) 생성 확인. 03:00 자동 생성 확인(2026-07-30, `herongs-20260730.db` 80MB) — 백업 로직 완결. 잔여: 맥미니 이관 후 NAS 실전송(§6-A 6단계)만 |
 
 ## 운영 관찰 기록 (2026-07-28, 타겟 0 상시 구동 3일차)
 
