@@ -55,6 +55,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ preview_id }),
     }),
+  modifyOrder: (ordNo: string, code: string, qty: number, price: number) =>
+    request<{ ord_no: string }>(`/api/orders/${ordNo}`, {
+      method: "PUT",
+      body: JSON.stringify({ code, qty, price }),
+    }),
   cancelOrder: (ordNo: string, code: string) =>
     request(`/api/orders/${ordNo}?code=${code}`, { method: "DELETE" }),
   conditions: (refresh = false) =>

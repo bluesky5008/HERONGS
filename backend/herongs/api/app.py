@@ -71,6 +71,7 @@ def create_app(
     st.orders = orders
     st.recommendations = recommendations
     st.sessions = {}  # PIN 세션 토큰 (§7)
+    st.login_attempts = {"fails": 0, "locked_until": 0.0}  # 로그인 실패 잠금 (DCR-001)
 
     app.include_router(router, prefix="/api")
 

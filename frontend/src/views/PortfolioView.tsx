@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, OpenOrder, Portfolio } from "../api";
+import { Fragment, useEffect, useState } from "react";
+import { api, ApiError, OpenOrder, Portfolio } from "../api";
 
 const STANCE_SHORT: Record<string, string> = {
   buy: "매수", sell: "매도", hold: "홀딩", watch: "관망", avoid: "비추",
@@ -21,6 +21,31 @@ export function PortfolioView({ onSelect }: { onSelect: (code: string) => void }
   const cancel = async (o: OpenOrder) => {
     await api.cancelOrder(o.ord_no, o.code);
     load();
+  };
+
+  // 미체결 정정 (FR-09)
+  const [editing, setEditing] = useState<OpenOrder | null>(null);
+  const [mQty, setMQty] = useState("");
+  const [mPrice, setMPrice] = useState("");
+  const [orderError, setOrderError] = useState("");
+
+  const startEdit = (o: OpenOrder) => {
+    setEditing(o);
+    setMQty(String(o.unfilled_qty));
+    setMPrice(String(o.price));
+    setOrderError("");
+  };
+
+  const doModify = async () => {
+    if (!editing) return;
+    setOrderError("");
+    try {
+      await api.modifyOrder(editing.ord_no, editing.code, Number(mQty), Number(mPrice));
+      setEditing(null);
+      load();
+    } catch (e) {
+      setOrderError(e instanceof ApiError ? e.message : String(e));
+    }
   };
 
   if (error) return <div className="error">{error}</div>;
@@ -79,20 +104,42 @@ export function PortfolioView({ onSelect }: { onSelect: (code: string) => void }
           <button className="ghost" onClick={load}>새로고침</button>
         </div>
         {orders.length === 0 && <div className="muted">미체결 없음</div>}
+        {orderError && <div className="error">{orderError}</div>}
         <table className="list">
           <tbody>
             {orders.map((o) => (
-              <tr key={o.ord_no}>
-                <td>
-                  <div className="title">{o.name || o.code}</div>
-                  <div className="muted">
-                    {o.side} {o.qty}주 @ {o.price.toLocaleString()} (미체결 {o.unfilled_qty})
-                  </div>
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  <button className="ghost" onClick={() => cancel(o)}>취소</button>
-                </td>
-              </tr>
+              <Fragment key={o.ord_no}>
+                <tr>
+                  <td>
+                    <div className="title">{o.name || o.code}</div>
+                    <div className="muted">
+                      {o.side} {o.qty}주 @ {o.price.toLocaleString()} (미체결 {o.unfilled_qty})
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button className="ghost" onClick={() => startEdit(o)}>정정</button>
+                    <button className="ghost" onClick={() => cancel(o)}>취소</button>
+                  </td>
+                </tr>
+                {editing?.ord_no === o.ord_no && (
+                  <tr>
+                    <td colSpan={2}>
+                      <div className="formrow">
+                        <input inputMode="numeric" placeholder="수량(주)" value={mQty}
+                               onChange={(e) => setMQty(e.target.value)} />
+                        <input inputMode="numeric" placeholder="가격(원)" value={mPrice}
+                               onChange={(e) => setMPrice(e.target.value)} />
+                      </div>
+                      <button className="primary" onClick={doModify} disabled={!mQty || !mPrice}>
+                        정정 전송
+                      </button>
+                      <button className="ghost" style={{ marginLeft: 8 }} onClick={() => setEditing(null)}>
+                        닫기
+                      </button>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

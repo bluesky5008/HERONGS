@@ -1,5 +1,6 @@
 """내부 REST API (설계 §4.2) + PIN 세션 인증 (§7)."""
 
+import secrets
 import time
 from datetime import datetime
 
@@ -22,6 +23,10 @@ router = APIRouter()
 
 SESSION_COOKIE = "herongs_session"
 SESSION_TTL = 12 * 3600
+
+# 로그인 무차별 대입 방어 (DCR-001): 연속 실패 5회 → 300초 전역 잠금
+LOCKOUT_AFTER = 5
+LOCKOUT_SECONDS = 300
 
 # 인증 없이 허용되는 경로 (로그인 자체)
 _PUBLIC = {"/api/auth/login"}
@@ -49,8 +54,20 @@ def login(body: LoginBody, request: Request, response: Response):
     st = request.app.state
     if not st.settings.pin:
         return {"ok": True, "auth": "disabled"}
-    if body.pin != st.settings.pin:
+    la = st.login_attempts
+    now = time.time()
+    if now < la["locked_until"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"로그인이 잠겼습니다. {int(la['locked_until'] - now) + 1}초 후 다시 시도하세요",
+        )
+    if not secrets.compare_digest(body.pin.encode(), st.settings.pin.encode()):
+        la["fails"] += 1
+        if la["fails"] >= LOCKOUT_AFTER:
+            la["fails"] = 0
+            la["locked_until"] = now + LOCKOUT_SECONDS
         raise HTTPException(status_code=401, detail="PIN이 올바르지 않습니다")
+    la["fails"] = 0
     from .app import new_session_token
 
     token = new_session_token()
@@ -197,6 +214,18 @@ async def order_confirm(body: ConfirmBody, request: Request):
 async def open_orders(request: Request):
     _auth(request)
     return await request.app.state.orders.open_orders()
+
+
+class ModifyBody(BaseModel):
+    code: str
+    qty: int
+    price: float
+
+
+@router.put("/orders/{ord_no}")
+async def modify_order(ord_no: str, body: ModifyBody, request: Request):
+    _auth(request)
+    return await request.app.state.orders.modify(ord_no, body.code, body.qty, body.price)
 
 
 @router.delete("/orders/{ord_no}")

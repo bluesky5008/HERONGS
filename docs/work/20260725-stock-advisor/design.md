@@ -197,6 +197,8 @@ GET  /api/regime, /api/conditions, /api/settings     국면·조건식 매핑·�
 - 비밀 정보는 `.env`(gitignore 처리됨)에만 저장. 로그에 키·계좌번호 마스킹.
 - 백엔드는 `0.0.0.0` 바인딩하되 방화벽에서 Tailscale 인터페이스(100.x)와 localhost만 허용. 포트포워딩 금지.
 - PWA 접속에 간단한 세션 인증(단일 사용자 PIN) 추가 — 가족 공용 기기 오조작 방지.
+- 로그인 시도 제한(DCR-001): 연속 5회 실패 시 300초 전역 잠금(429), 성공 시 카운터 리셋.
+  상태는 세션과 동일하게 인메모리(`app.state.login_attempts`). PIN 비교는 `secrets.compare_digest`.
 - 실계좌 모드: `.env`의 `TRADING_MODE=real` + 설정 화면 이중 확인으로만 활성화. 기본값 `mock`.
 - 주문 가드레일: 1회 주문 금액 상한, 일일 누적 주문 상한(설정)을 preview 단계에서 강제.
 
