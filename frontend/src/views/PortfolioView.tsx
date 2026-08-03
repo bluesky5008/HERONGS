@@ -4,6 +4,7 @@ import { api, OpenOrder, Portfolio } from "../api";
 const STANCE_SHORT: Record<string, string> = {
   buy: "매수", sell: "매도", hold: "홀딩", watch: "관망", avoid: "비추",
 };
+const PROFILE_LABELS: Record<string, string> = { long: "장기", swing: "스윙", scalp: "단타" };
 
 /** 잔고·수익률·보유종목 의견 + 미체결 (FR-07/09) */
 export function PortfolioView({ onSelect }: { onSelect: (code: string) => void }) {
@@ -62,7 +63,7 @@ export function PortfolioView({ onSelect }: { onSelect: (code: string) => void }
                   <div className="muted">
                     {s.opinions &&
                       Object.entries(s.opinions)
-                        .map(([p, st]) => `${p[0].toUpperCase()}:${STANCE_SHORT[st] ?? st}`)
+                        .map(([p, st]) => `${PROFILE_LABELS[p] ?? p}:${STANCE_SHORT[st] ?? st}`)
                         .join(" ")}
                   </div>
                 </td>
