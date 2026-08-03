@@ -131,11 +131,11 @@ WU-01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 
 | AC-01 | **통과** (2026-07-25 실검증) | 모의 도메인에서 au10001 토큰 발급 → 005930 분석 E2E 성공: kt00018·ka10131(4페이지 연속조회)·ka10001·ka10081 전부 200, 일봉 600건 적재(2024-02-02~2026-07-24), 3관점 의견 저장. TR당 1초 스로틀 동작 확인(로그 타임스탬프), 유량 오류(1700/1701) 미발생 |
 | AC-02 | **통과** (2026-07-28 실검증) | 단위: test_run_scan_saves_recommendations_with_rationale. 실운영: 07-27·07-28 이틀간 장중 자동 스캔 — 추천 498건 저장(근거 JSON 포함, long 340/swing 158), 신규 추천 텔레그램 50건 전량 발송(sent=1). 주말(07-26)·장외 자동 스캔 없음 → 휴장·장시간 인지(NFR-04) 실확인 |
 | AC-03 | 단위 검증 | test_recommendation.py::test_opinions_saved_and_stop_loss_alerts — 3관점 의견+근거, test_api.py 분석 API |
-| AC-04 | 단위 검증 | test_orders.py::test_confirm_requires_valid_preview, test_api.py::test_confirm_without_preview_via_api — confirm이 유일한 전송 경로, preview 필수 |
+| AC-04 | **통과** (2026-08-03 실검증) | 단위: test_orders.py::test_confirm_requires_valid_preview, test_api.py::test_confirm_without_preview_via_api — confirm이 유일한 전송 경로. **실주문 E2E(모의계좌)**: 한국금융지주(071050) 1주 매수 — preview(예상금액·비중 0.04%·손절 190,000·목표 220,000 표시) → confirm → kt10000 접수(주문번호 0001459, 08:48) → 체결 → 잔고·보유 의견(FR-07) 반영, 미체결 없음 확인. 전 과정 폰 PWA(Tailscale 경유)에서 수행, order_log 기록 완비. 잔여: 미체결 상태에서의 취소·정정 실검증(체결이 빨라 기회 없었음 — 단위 검증은 완료) |
 | AC-05 | **통과** (2026-07-26 실기기 확인) | `npm run build` 성공(tsc 포함), Docker 컨테이너 static 서빙, 핸드폰(같은 Wi-Fi)에서 접속·렌더 확인. 접속 장애 2건 해결: ① Hyper-V 동적 포트 예약의 8000 점유 → 영구 예약 ② 방화벽 Private 전용 규칙이 WSL2 인바운드 경로와 미매칭 → Any 프로파일. 주문 확인 흐름의 모바일 검증은 AC-04 장중 E2E에서 함께 수행 |
 | AC-06 | 단위 검증 + 채널 실검증 | 손절 오버라이드(test_scoring.py::test_override_stop_loss_beats_score) 단위 통과. 텔레그램 채널 실검증 완료(2026-07-25): sendMessage 테스트 + 기동 heartbeat 자동 발송 수신(alert_log sent=1, @HERONGS_ALARM_BOT → chat 8366481238). 손절 이벤트 실발송은 보유 종목 발생 후 확인 |
 | AC-07 | 단위 검증 | test_collector.py::test_scan_end_to_end_excludes_halted, test_hygiene_filter_drops_flagged_and_illiquid |
-| AC-08 | 단위 검증 | test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. 실 HTS 연동은 키 발급 후 |
+| AC-08 | **통과** (2026-08-03 실검증) | 단위: test_realtime.py::test_refresh_conditions_upserts_preserving_mapping, test_collector.py::test_condition_source_feeds_candidates. **실 HTS 연동**: [0150]에서 HERONGS_LONG/SWING/SCALP 3식 작성·서버 저장(부록 A 기반, 공식 도움말 대조) → 앱 설정에서 목록 조회(CNSRLST)·전략 매핑(enabled=1) → 매핑 후 장중 스캔 정상 동작(08-03 추천 12건) |
 | AC-09 | 부분 실검증 (2026-07-28) | 단위: test_evaluate_performance_and_report. 실운영: 1일 경과 수익률 187건 자동 평가(평균 -3.61%), 적중률이 마감 브리핑에 포함 발송(07-28: long 23.2%, swing 38.7%). 5/20영업일 호라이즌은 시간 경과 후 자동 평가 예정 |
 | AC-10 | 단위 검증 | test_orders.py::test_preview_blocks_over_limit(사유 포함), test_api.py::test_order_guardrail_via_api(422+사유) |
 | AC-11 | **통과** (타겟 0: 2026-07-29 / 타겟 1: 2026-07-30 재검증) | 타겟 0: `docker compose up -d --build` 기동 + 재부팅 무조작 자동 기동 확인(2026-07-29). 발견·수정 2건 — ① 컨테이너 UTC → TZ=Asia/Seoul ② Docker Desktop 로그인 자동 시작 실패 → StartupApproved 정리+시작 폴더 바로가기. **타겟 1(맥미니) 이관 후 재검증(2026-07-30)**: 5회 재부팅 반복 검증 끝에 무조작 통과 — 부팅 29초 만에 자동 로그인 → NAS 키체인 마운트(창 없음) → 컨테이너 기동 → heartbeat 발송. Docker 자동 시작·NAS 마운트 경쟁 등 발견 이슈와 해결은 deployment.md §8 수행 기록 참조 |
@@ -168,7 +168,8 @@ DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
 - [x] Docker Desktop 설치·compose 기동·재부팅 자동 복구 확인 (AC-11 통과 — 2026-07-29 무조작 재부팅 자동 기동 재확인 완료)
 - [x] ~~NAS(DS220j) SMB 마운트 후 백업 실전송 확인~~ (2026-07-30 완결 — AC-12 통과, tailnet 경유. deployment.md §8) `.env` 편집 시 주의: PS5.1 `Set-Content -Encoding utf8`은 BOM을 붙여 첫 변수를 깨뜨림 → BOM 없는 UTF-8로 저장할 것
 - [x] 맥미니(타겟 1) 이관 — 2026-07-30 완료: 실행환경 구성 → `.env`+`data/` 이관 → 운영 기동 → 재부팅 무조작 검증(AC-11 재검증). 이관 중 발견·수정: 텔레그램 봇 토큰이 httpx INFO 로그에 노출 → 마스킹 등록 추가(커밋 6ffbc0c, 테스트 63건)
-- [ ] 장중 주문 E2E (AC-04): preview→confirm 실주문(모의 도메인)·미체결/정정/취소 — 아직 order_log 0건
+- [x] ~~장중 주문 E2E (AC-04)~~ (2026-08-03 통과 — 매수 체결까지 확인). 잔여 소검증: 미체결 상태에서 취소/정정 실확인
+- [ ] 포트폴리오 보유 의견 라벨에서 스윙·단타가 모두 "S:"로 표기되어 구분 불가 (예: "L:관망 S:비추 S:비추") — 프론트 표기 수정 (경미)
 - [ ] **로그인 실패 시도 제한**: `/api/auth/login`에 무차별 대입 방어(예: 5회 실패 시 지연/잠금) 추가. 현재는 시도 제한 없음 — PIN(숫자 6자리, 2026-07-29 설정)이 Tailscale 뒤 2차 방벽이라 급하지 않으나 보안 변경이므로 wf-design 경량 검토 후 구현 (§7 보강)
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
 - [x] 텔레그램 봇 생성·연동 (2026-07-25 완료: @HERONGS_ALARM_BOT, heartbeat 실수신 확인). 강제 종료 시에는 종료 알림이 발송되지 않음(정상 종료에서만 발송) — 운영 시 참고

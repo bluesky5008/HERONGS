@@ -28,7 +28,7 @@
 |---|---|
 | 요구사항 정의 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/requirements.md](docs/work/20260725-stock-advisor/requirements.md) |
 | SW 설계 | **기준선 v1 승인** (2026-07-25) — [docs/work/20260725-stock-advisor/design.md](docs/work/20260725-stock-advisor/design.md) |
-| 구현 | 백엔드·PWA·배포 구성 완료, 단위 테스트 63건 통과. 맥미니(타겟 1) 이관·상시 운영 중 (2026-07-30, AC-11/12 통과) — 잔여: 장중 주문 E2E(AC-04) ([구현 계획·검증 상태](docs/work/20260725-stock-advisor/plan.md), [배포 기록](docs/deployment.md)) |
+| 구현 | 백엔드·PWA·배포 구성 완료, 단위 테스트 63건 통과. 맥미니(타겟 1) 상시 운영 중 — **인수 조건 AC-01~12 전항 실검증 통과** (2026-08-03, 조건검색 연동·주문 E2E 포함) ([구현 계획·검증 상태](docs/work/20260725-stock-advisor/plan.md), [배포 기록](docs/deployment.md)) |
 
 ## 실행 방법
 
