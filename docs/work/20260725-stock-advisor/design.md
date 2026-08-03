@@ -201,6 +201,7 @@ GET  /api/regime, /api/conditions, /api/settings     국면·조건식 매핑·�
   상태는 세션과 동일하게 인메모리(`app.state.login_attempts`). PIN 비교는 `secrets.compare_digest`.
 - 실계좌 모드: `.env`의 `TRADING_MODE=real` + 설정 화면 이중 확인으로만 활성화. 기본값 `mock`.
 - 주문 가드레일: 1회 주문 금액 상한, 일일 누적 주문 상한(설정)을 preview 단계에서 강제.
+  정정(modify)은 preview를 거치지 않으므로 1회 상한을 서비스 진입부에서 직접 검사(DCR-002).
 
 ## 8. 주요 결정 (통합 ADR)
 

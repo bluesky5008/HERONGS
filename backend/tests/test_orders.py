@@ -39,6 +39,13 @@ async def test_preview_blocks_over_limit(sf, settings):
         await svc.preview("buy", "005930", qty=100, price=70000)
 
 
+async def test_modify_blocks_over_limit(sf, settings):
+    svc, _ = make_order_service(sf, settings)
+    # 정정은 preview 미경유 → 1회 상한을 직접 검사 (DCR-002)
+    with pytest.raises(GuardrailError, match="1회 주문 금액 상한"):
+        await svc.modify("0000138", "005930", qty=100, price=70000)
+
+
 async def test_preview_daily_limit(sf, settings):
     with sf() as s:
         s.add(OrderLog(ts=datetime.now(), side="buy", code="005930", qty=100,

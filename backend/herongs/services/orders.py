@@ -219,6 +219,15 @@ class OrderService:
         ]
 
     async def modify(self, orig_ord_no: str, code: str, qty: int, price: float) -> dict:
+        # 정정은 preview를 거치지 않으므로 1회 상한을 여기서 직접 검사 (DCR-002)
+        if qty <= 0 or price <= 0:
+            raise GuardrailError("수량·가격은 0보다 커야 합니다")
+        amount = qty * price
+        if amount > self._settings.max_order_amount:
+            raise GuardrailError(
+                f"1회 주문 금액 상한 초과: {amount:,.0f}원 > "
+                f"{self._settings.max_order_amount:,.0f}원"
+            )
         data, _ = await self._client.call(
             "kt10002",
             {"dmst_stex_tp": "KRX", "orig_ord_no": orig_ord_no, "stk_cd": code,

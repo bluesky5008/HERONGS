@@ -97,6 +97,11 @@ def test_order_modify_via_api():
         assert resp.status_code == 200
         assert resp.json()["ord_no"] == "0000140"  # FR-09 정정
 
+        resp = tc.put("/api/orders/0000138",
+                      json={"code": "005930", "qty": 1000, "price": 70000})
+        assert resp.status_code == 422
+        assert "상한" in resp.json()["detail"]  # AC-SEC-03: 정정 가드레일
+
 
 def test_watchlist_crud():
     with TestClient(make_app()) as tc:

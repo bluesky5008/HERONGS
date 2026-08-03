@@ -225,7 +225,10 @@ class ModifyBody(BaseModel):
 @router.put("/orders/{ord_no}")
 async def modify_order(ord_no: str, body: ModifyBody, request: Request):
     _auth(request)
-    return await request.app.state.orders.modify(ord_no, body.code, body.qty, body.price)
+    try:
+        return await request.app.state.orders.modify(ord_no, body.code, body.qty, body.price)
+    except GuardrailError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.delete("/orders/{ord_no}")
