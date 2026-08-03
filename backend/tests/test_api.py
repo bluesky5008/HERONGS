@@ -12,12 +12,12 @@ from .conftest import make_kiwoom_client
 from .test_orders import ACCOUNT_ROUTES
 
 
-def make_app(pin: str = ""):
+def make_app(pin: str = "", routes: dict | None = None):
     settings = Settings(
         kiwoom_appkey="AK", kiwoom_secretkey="SK",
         db_path=Path(":memory:"), pin=pin, _env_file=None,
     )
-    client = make_kiwoom_client(ACCOUNT_ROUTES, settings)
+    client = make_kiwoom_client(routes or ACCOUNT_ROUTES, settings)
     return create_app(settings=settings, client=client, with_scheduler=False)
 
 
@@ -86,6 +86,19 @@ def test_order_guardrail_via_api():
         })
         assert resp.status_code == 422
         assert "상한" in resp.json()["detail"]  # AC-10: 사유 표시
+
+
+def test_kiwoom_rejection_returns_502_with_reason():
+    # 2026-08-04 새벽 실사례: 모의투자 장시작전 거부가 500으로 새던 문제
+    routes = {**ACCOUNT_ROUTES,
+              "kt10000": {"return_code": 20, "return_msg": "(RC4057:모의투자 장시작전)"}}
+    with TestClient(make_app(routes=routes)) as tc:
+        pv = tc.post("/api/orders/preview", json={
+            "side": "buy", "code": "005930", "qty": 1, "price": 70000,
+        }).json()
+        resp = tc.post("/api/orders/confirm", json={"preview_id": pv["preview_id"]})
+        assert resp.status_code == 502
+        assert "장시작전" in resp.json()["detail"]
 
 
 def test_confirm_without_preview_via_api():

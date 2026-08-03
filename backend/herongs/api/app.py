@@ -6,11 +6,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import Settings, load_settings
 from ..db import init_db
 from ..kiwoom import KiwoomClient
+from ..kiwoom.errors import KiwoomError
 from ..logsetup import register_secret, setup_logging
 from .routes import router
 
@@ -74,6 +76,12 @@ def create_app(
     st.recommendations = recommendations
     st.sessions = {}  # PIN 세션 토큰 (§7)
     st.login_attempts = {"fails": 0, "locked_until": 0.0}  # 로그인 실패 잠금 (DCR-001)
+
+    @app.exception_handler(KiwoomError)
+    async def kiwoom_error(request, exc: KiwoomError):
+        # 키움 API 거부(예: 모의투자 장시작전)를 500 대신 사유와 함께 반환
+        log.warning("키움 API 오류 응답: %s", exc)
+        return JSONResponse(status_code=502, content={"detail": exc.return_msg or str(exc)})
 
     app.include_router(router, prefix="/api")
 
