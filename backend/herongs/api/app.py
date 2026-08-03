@@ -34,13 +34,14 @@ def create_app(
     from ..services.collector import Collector
     from ..services.notifier import Notifier
     from ..services.orders import OrderService
-    from ..services.realtime import RealtimeGateway
+    from ..services.realtime import RealtimeGateway, ScalpSignalHandler
     from ..services.recommendation import RecommendationService
 
     client = client or KiwoomClient(settings)
     sf = dbmod.SessionLocal
     notifier = Notifier(settings, sf)
     realtime = RealtimeGateway(client, settings, sf)
+    realtime.on_real = ScalpSignalHandler(realtime, sf, notify=notifier.send_event).on_real  # §5.4 배선
     collector = Collector(client, sf, settings, condition_source=realtime.run_condition)
     orders = OrderService(client, sf, settings)
     recommendations = RecommendationService(collector, sf, settings, notify=notifier.send_event)
@@ -58,6 +59,7 @@ def create_app(
         if scheduler:
             scheduler.shutdown(wait=False)
             await notifier.send_text("HERONGS 백엔드 정상 종료")
+        await realtime.stop()
         await client.aclose()
 
     app = FastAPI(title="HERONGS", lifespan=lifespan)

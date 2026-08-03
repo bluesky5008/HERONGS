@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+from datetime import datetime
+from types import SimpleNamespace
 
 from sqlalchemy import select
 
 from herongs.models import ConditionMap
 from herongs.services.realtime import RealtimeGateway, ScalpSignalHandler
+from herongs.services.scheduler import sync_scalp_realtime
 
 from .conftest import make_kiwoom_client
 
@@ -84,6 +87,30 @@ async def test_ping_echo(sf, settings):
     await asyncio.sleep(0.05)
     assert {"trnm": "PING", "seq": "7"} in ws.sent  # 에코
     await gw.close()
+
+
+async def test_sync_scalp_realtime_registers_in_hours_stops_after(sf, settings):
+    with sf() as s:
+        s.add(ConditionMap(seq="1", name="HERONGS_SCALP", profile="scalp", enabled=True))
+        s.commit()
+    gw, ws = make_gateway(sf, settings)
+    state = SimpleNamespace(sf=sf, realtime=gw)
+
+    # 장중(수요일 10:00) → scalp 조건식 실시간 등록 (ka10173)
+    await sync_scalp_realtime(state, now=datetime(2026, 8, 5, 10, 0))
+    regs = [m for m in ws.sent
+            if m.get("trnm") == "CNSRREQ" and m.get("search_type") == "1"]
+    assert [m["seq"] for m in regs] == ["1"]
+
+    # 재실행해도 중복 등록 없음 (멱등)
+    await sync_scalp_realtime(state, now=datetime(2026, 8, 5, 10, 1))
+    regs = [m for m in ws.sent
+            if m.get("trnm") == "CNSRREQ" and m.get("search_type") == "1"]
+    assert len(regs) == 1
+
+    # 장외 → 등록 상태 폐기 + 접속 종료 (설계 §6: 장외 구독 중지)
+    await sync_scalp_realtime(state, now=datetime(2026, 8, 5, 15, 40))
+    assert gw._rt_conditions == [] and gw._ws is None
 
 
 async def test_scalp_handler_subscribe_evaluate_release(sf, settings):

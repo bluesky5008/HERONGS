@@ -21,6 +21,10 @@ def make_app(pin: str = ""):
     return create_app(settings=settings, client=client, with_scheduler=False)
 
 
+def test_scalp_handler_wired():
+    assert make_app().state.realtime.on_real is not None  # §5.4 배선 (FR-13)
+
+
 def test_healthz():
     with TestClient(make_app()) as tc:
         assert tc.get("/healthz").json() == {"status": "ok"}

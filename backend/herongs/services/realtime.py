@@ -140,11 +140,12 @@ class RealtimeGateway:
         return codes
 
     async def register_realtime_condition(self, seq: str) -> None:
-        """조건검색 실시간 등록 (ka10173)."""
+        """조건검색 실시간 등록 (ka10173). 이미 등록된 seq는 무시 — 주기 동기화 대비 멱등."""
+        if seq in self._rt_conditions:
+            return
         await self.connect()
         await self._send(_cnsr_req(seq, realtime=True))
-        if seq not in self._rt_conditions:
-            self._rt_conditions.append(seq)
+        self._rt_conditions.append(seq)
 
     async def remove_realtime_condition(self, seq: str) -> None:
         await self._send({"trnm": "CNSRCLR", "seq": seq})  # ka10174
@@ -187,6 +188,12 @@ class RealtimeGateway:
         if self._ws is not None:
             await self._ws.close()
             self._ws = None
+
+    async def stop(self) -> None:
+        """장 마감·앱 종료: 등록 상태 폐기 후 접속 종료 — 재접속 시 재등록 방지 (§5.4)."""
+        self._rt_conditions.clear()
+        self._registered.clear()
+        await self.close()
 
 
 def _cnsr_req(seq: str, realtime: bool) -> dict:

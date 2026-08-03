@@ -1,6 +1,7 @@
 """Scheduler — 장 운영시간 인지 주기 작업 (NFR-04, FR-17, 설계 §2·§11.5).
 
-작업: 장전 브리핑(08:30) / 장중 스캔(설정 주기) / 마감 후 배치(15:40) / 백업(03:00).
+작업: 장전 브리핑(08:30) / 장중 스캔(설정 주기) / scalp 실시간 동기화(1분, §5.4)
+/ 마감 후 배치(15:40) / 백업(03:00).
 휴장일은 setting `market.holidays`(YYYY-MM-DD 쉼표 목록)로 관리한다.
 """
 
@@ -38,6 +39,17 @@ def is_trading_day(d: date, holiday_set: set[date]) -> bool:
 
 def is_market_hours(dt: datetime, holiday_set: set[date]) -> bool:
     return is_trading_day(dt.date(), holiday_set) and MARKET_OPEN <= dt.time() <= MARKET_CLOSE
+
+
+async def sync_scalp_realtime(state, now: datetime | None = None) -> None:
+    """§5.4 배선 (FR-13): 장중엔 scalp 조건식 실시간 등록(멱등), 장외엔 구독 종료."""
+    with state.sf() as s:
+        hs = holidays(s)
+    if is_market_hours(now or datetime.now(), hs):
+        for seq in state.realtime.scalp_condition_seqs():
+            await state.realtime.register_realtime_condition(seq)
+    else:
+        await state.realtime.stop()
 
 
 def build_scheduler(state) -> AsyncIOScheduler:
@@ -89,8 +101,15 @@ def build_scheduler(state) -> AsyncIOScheduler:
             log.exception("백업 실패: %s", e)
             await state.notifier.send_event("backup_failed", {"error": str(e)})
 
+    async def scalp_realtime_job():
+        try:
+            await sync_scalp_realtime(state)
+        except Exception as e:
+            log.exception("scalp 실시간 동기화 실패: %s", e)
+
     interval = state.settings.scan_interval_min
     sched.add_job(intraday_scan, "interval", minutes=interval, id="intraday_scan")
+    sched.add_job(scalp_realtime_job, "interval", minutes=1, id="scalp_realtime")
     sched.add_job(morning_briefing, CronTrigger(hour=8, minute=30), id="morning_briefing")
     sched.add_job(evening_batch, CronTrigger(hour=15, minute=40), id="evening_batch")
     sched.add_job(nightly_backup, CronTrigger(hour=3, minute=0), id="nightly_backup")
