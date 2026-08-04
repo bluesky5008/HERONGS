@@ -113,6 +113,11 @@ button.ghost {
 }
 .login input { max-width: 240px; text-align: center; font-size: 24px; letter-spacing: 8px; }
 
+.quote { margin-bottom: 10px; }
+.quote .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+table.book td { padding: 3px 4px; border-top: none; }
+table.book td:nth-child(2) { cursor: pointer; font-weight: 600; }
+
 table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.list th { color: var(--muted); text-align: left; padding: 6px 4px; font-weight: 500; }
 table.list td { padding: 6px 4px; border-top: 1px solid var(--border); }

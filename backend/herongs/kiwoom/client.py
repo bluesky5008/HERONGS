@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 # TR → URL 경로 (doc/kiwoom-rest-api-spec.json에서 추출)
 TR_PATHS = {
     "ka10001": "/api/dostk/stkinfo",
+    "ka10004": "/api/dostk/mrkcond",
     "ka10008": "/api/dostk/frgnistt",
     "ka10016": "/api/dostk/stkinfo",
     "ka10023": "/api/dostk/rkinfo",

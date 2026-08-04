@@ -137,6 +137,13 @@ async def stock_analysis(code: str, request: Request):
     return await st.recommendations.analyze_stock(code, holdings)
 
 
+@router.get("/stocks/{code}/quote")
+async def stock_quote(code: str, request: Request, with_account: bool = True):
+    """주문 보조 정보 — 시세·호가(+계좌) (FR-20/21/22, AC-13/14)."""
+    _auth(request)
+    return await request.app.state.orders.quote(code, with_account)
+
+
 @router.get("/stocks/{code}/prices")
 def stock_prices(code: str, request: Request, limit: int = 120):
     """차트용 일봉 (FR-06). 적재분(daily_price)에서 반환."""

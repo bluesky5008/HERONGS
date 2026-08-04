@@ -40,6 +40,8 @@ export const api = {
   regime: () => request<Regime>("/api/regime"),
   analysis: (code: string) => request<OpinionItem[]>(`/api/stocks/${code}/analysis`),
   prices: (code: string) => request<Candle[]>(`/api/stocks/${code}/prices`),
+  quote: (code: string, withAccount = true) =>
+    request<Quote>(`/api/stocks/${code}/quote?with_account=${withAccount}`),
   portfolio: () => request<Portfolio>("/api/portfolio"),
   performance: () => request<Performance>("/api/performance"),
   openOrders: () => request<OpenOrder[]>("/api/orders/open"),
@@ -147,6 +149,27 @@ export interface OpenOrder {
   qty: number;
   price: number;
   unfilled_qty: number;
+}
+export interface QuoteLevel {
+  price: number;
+  qty: number;
+}
+export interface Quote {
+  code: string;
+  name: string;
+  cur_price: number | null;
+  change_rate: number | null;
+  base_price: number | null;
+  holding_qty: number | null;
+  orderable_cash: number | null;
+  orderbook: {
+    base_time: string;
+    asks: QuoteLevel[];
+    bids: QuoteLevel[];
+    total_ask_qty: number;
+    total_bid_qty: number;
+  } | null;
+  errors: string[];
 }
 export interface Preview {
   preview_id: string;

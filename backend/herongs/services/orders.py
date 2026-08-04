@@ -4,6 +4,7 @@
 preview 없이 주문이 전송되는 코드 경로는 존재하지 않는다 (AC-04).
 """
 
+import asyncio
 import logging
 import time
 import uuid
@@ -91,9 +92,50 @@ class OrderService:
             "stocks": stocks,
         }
 
-    async def deposit(self) -> float:
+    async def orderable_cash(self) -> float:
+        """주문가능금액 (kt00001). 예수금(entr)과 달리 증거금·미수를 반영한다 (FR-22)."""
         data, _ = await self._client.call("kt00001", {"qry_tp": "2"})
-        return pnum(data.get("entr"))
+        return pnum(data.get("ord_alow_amt"))
+
+    async def quote(self, code: str, with_account: bool = True) -> dict:
+        """주문 보조 정보 — 시세·호가(+계좌) (FR-20/21/22).
+
+        조회는 병렬 수행하고, 실패한 항목만 비우고 errors에 남긴다.
+        주문창이 열리는 것 자체를 막지 않기 위함이다 (NFR-07).
+        """
+        names = ["market", "orderbook"] + (["holding", "cash"] if with_account else [])
+        calls = [
+            self._client.call("ka10001", {"stk_cd": code}),
+            self._client.call("ka10004", {"stk_cd": code}),
+        ]
+        if with_account:
+            calls += [self.holdings(), self.orderable_cash()]
+        got = dict(zip(names, await asyncio.gather(*calls, return_exceptions=True)))
+
+        out = {
+            "code": code, "name": "", "cur_price": None, "change_rate": None,
+            "base_price": None, "holding_qty": None, "orderable_cash": None,
+            "orderbook": None,
+            "errors": [n for n, v in got.items() if isinstance(v, Exception)],
+        }
+        for name, value in got.items():
+            if isinstance(value, Exception):
+                log.warning("quote %s 조회 실패(%s): %s", code, name, value)
+                continue
+            if name == "market":
+                data = value[0]
+                out["name"] = data.get("stk_nm", "")
+                out["cur_price"] = pprice(data.get("cur_prc"))
+                out["change_rate"] = pnum(data.get("flu_rt"))
+                out["base_price"] = pprice(data.get("base_pric"))
+            elif name == "orderbook":
+                out["orderbook"] = _orderbook(value[0])
+            elif name == "holding":
+                held = value.get(code)
+                out["holding_qty"] = held.qty if held else 0
+            elif name == "cash":
+                out["orderable_cash"] = value
+        return out
 
     # ── 1단계: preview (FR-15, NFR-02) ───────────────────────────
 
@@ -267,3 +309,33 @@ class OrderService:
                     updated += 1
             s.commit()
         return updated
+
+
+ORDERBOOK_LEVELS = 5
+
+
+def _orderbook(data: dict) -> dict:
+    """ka10004 → 매도·매수 각 5단 (FR-21)."""
+    return {
+        "base_time": _hhmmss(data.get("bid_req_base_tm")),
+        "asks": _levels(data, "sel"),
+        "bids": _levels(data, "buy"),
+        "total_ask_qty": int(pnum(data.get("tot_sel_req"))),
+        "total_bid_qty": int(pnum(data.get("tot_buy_req"))),
+    }
+
+
+def _levels(data: dict, prefix: str) -> list[dict]:
+    """1단만 최우선(fpr) 접두어, 2단부터 {n}th_pre — 키움 필드 규칙."""
+    out = []
+    for n in range(1, ORDERBOOK_LEVELS + 1):
+        key = f"{prefix}_fpr" if n == 1 else f"{prefix}_{n}th_pre"
+        p = pprice(data.get(f"{key}_bid"))
+        if p:
+            out.append({"price": p, "qty": int(pnum(data.get(f"{key}_req")))})
+    return out
+
+
+def _hhmmss(raw) -> str:
+    t = str(raw or "").strip()
+    return f"{t[:2]}:{t[2:4]}:{t[4:6]}" if len(t) >= 6 else t

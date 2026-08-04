@@ -106,7 +106,8 @@ flowchart LR
 | 상세 분석 | ka10001 기본정보(PER/PBR/ROE), ka10081/10082 일·주봉, ka10131 기관외국인연속매매, ka10045 기관매매추이, ka10047 체결강도(일별) |
 | 시장 국면 | ka20001 업종현재가, ka20006 업종일봉(KOSPI/KOSDAQ 지수) |
 | 실시간(단타) | WS: 0B 주식체결, 0D 호가잔량, 1h VI발동/해제 |
-| 계좌 | kt00018 평가잔고, kt00001 예수금, ka10085 수익률 |
+| 시세(주문 보조) | ka10004 주식호가(10단, 1단은 `fpr` 접두어) — 20260804-order-quote |
+| 계좌 | kt00018 평가잔고, kt00001 예수금·주문가능금액(`ord_alow_amt`), ka10085 수익률 |
 | 주문 | kt10000 매수, kt10001 매도, kt10002 정정, kt10003 취소, ka10075 미체결 |
 
 ### 4.2 내부 REST API (백엔드 → PWA)
@@ -114,6 +115,7 @@ flowchart LR
 ```text
 GET  /api/recommendations?profile=long|swing|scalp   추천 목록+근거
 GET  /api/stocks/{code}/analysis                     개별 종목 3관점 의견 (FR-06)
+GET  /api/stocks/{code}/quote[?with_account=]        주문 보조: 시세·호가·보유·주문가능금액 (FR-20~24)
 GET  /api/portfolio                                  잔고·수익률·보유종목 의견
 POST /api/orders/preview                             주문 검증·비중·손절 제안 (FR-15)
 POST /api/orders/confirm                             preview_id 승인 → 주문 전송 (FR-08)
