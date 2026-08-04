@@ -61,8 +61,13 @@ def build_scheduler(state) -> AsyncIOScheduler:
             hs = holidays(s)
         if not is_market_hours(datetime.now(), hs):
             return  # 장외에는 스캔·구독 중지 (설계 §6)
+        # 국면 갱신 실패(예: ka20006 유량 초과)로 스캔 주기를 통째로 버리지 않는다.
+        # run_scan은 DB의 직전 국면을 사용하므로 추천 자체는 계속 가능하다 (설계 §6).
         try:
             await state.collector.update_regime()
+        except Exception as e:
+            log.warning("국면 갱신 실패 — 직전 국면으로 스캔 진행: %s", e)
+        try:
             await state.recommendations.run_scan()
         except Exception as e:
             log.exception("장중 스캔 실패: %s", e)

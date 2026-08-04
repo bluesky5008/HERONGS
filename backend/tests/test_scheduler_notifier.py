@@ -23,6 +23,34 @@ def test_trading_day_and_market_hours():
     assert not is_market_hours(datetime(2026, 7, 24, 15, 31), hs)  # 장후
 
 
+async def test_intraday_scan_survives_regime_failure(sf, settings, monkeypatch):
+    """국면 조회가 유량 초과로 실패해도 스캔은 수행된다 (2026-08-04 운영 이슈)."""
+    from types import SimpleNamespace
+
+    import herongs.services.scheduler as sch
+
+    monkeypatch.setattr(
+        sch, "datetime",
+        type("DT", (), {"now": staticmethod(lambda: datetime(2026, 8, 5, 10, 0))}),
+    )
+    ran = []
+
+    async def failing_regime():
+        raise RuntimeError("[ka20006] 5: 허용된 요청 개수를 초과하였습니다")
+
+    async def run_scan():
+        ran.append("scan")
+        return {}
+
+    state = SimpleNamespace(
+        sf=sf, settings=settings,
+        collector=SimpleNamespace(update_regime=failing_regime),
+        recommendations=SimpleNamespace(run_scan=run_scan),
+    )
+    await sch.build_scheduler(state).get_job("intraday_scan").func()
+    assert ran == ["scan"]  # 국면 실패가 스캔 주기를 통째로 날리지 않는다
+
+
 async def test_notifier_sends_and_logs(sf):
     captured = {}
 
