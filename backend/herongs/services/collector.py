@@ -27,6 +27,7 @@ RANKING_CALLS = [
 ]
 
 MIN_AVG_TRADING_VALUE = 1_000_000_000  # 위생 필터 기본 하한 10억 (setting으로 조정)
+RANKING_PAGES = 1  # 랭킹 TR당 조회 페이지 (DCR-003, setting `scan.ranking_pages`로 조정)
 
 
 class Collector:
@@ -59,9 +60,15 @@ class Collector:
                 if v is not None:
                     entry[k] = v
 
+        # 랭킹 상위권만 후보로 삼아 스캔이 주기를 넘기지 않게 한다 (DCR-003, FR-25)
+        from ..db import get_setting_float
+
+        with self._sf() as s:
+            pages = max(1, int(get_setting_float(s, "scan.ranking_pages", RANKING_PAGES)))
+
         for tr_id, body, list_key in RANKING_CALLS:
             try:
-                rows = await self._client.call_all(tr_id, body, list_key, max_pages=2)
+                rows = await self._client.call_all(tr_id, body, list_key, max_pages=pages)
             except Exception as e:  # 랭킹 1종 실패가 전체 스캔을 막지 않게
                 log.warning("랭킹 %s 실패: %s", tr_id, e)
                 continue

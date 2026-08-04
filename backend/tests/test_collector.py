@@ -31,6 +31,29 @@ ROUTES = {
 }
 
 
+async def test_ranking_pages_defaults_to_one_and_is_tunable(sf, settings):
+    """랭킹은 1페이지만 — 스캔이 주기를 넘기지 않게 하는 지렛대 (DCR-003, AC-18)."""
+    from herongs.db import set_setting
+
+    col = Collector(make_kiwoom_client(ROUTES, settings), sf, settings)
+    seen: list[int] = []
+    original = col._client.call_all
+
+    async def spy(tr_id, body, list_key, max_pages=20):
+        seen.append(max_pages)
+        return await original(tr_id, body, list_key, max_pages=max_pages)
+
+    col._client.call_all = spy
+    await col.collect_candidates()
+    assert set(seen) == {1}
+
+    with sf() as s:  # 추천이 과하게 줄면 되돌릴 수 있어야 한다
+        set_setting(s, "scan.ranking_pages", "2")
+    seen.clear()
+    await col.collect_candidates()
+    assert set(seen) == {2}
+
+
 async def test_collect_candidates_union_dedup(sf, settings):
     col = Collector(make_kiwoom_client(ROUTES, settings), sf, settings)
     found = await col.collect_candidates()
