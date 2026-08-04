@@ -25,6 +25,7 @@ class Holding:
     qty: int
     stop_price: float | None = None  # 전략별 손절선
     target_price: float | None = None  # 목표가
+    orderable_qty: int | None = None  # 매매가능수량 — 미체결 매도분 제외 (FR-22)
 
 
 def _band(score: float, buy_th: float) -> str:

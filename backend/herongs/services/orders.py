@@ -64,6 +64,7 @@ class OrderService:
                 out[code] = Holding(
                     avg_price=pprice(r.get("pur_pric")),
                     qty=int(pnum(r.get("rmnd_qty"))),
+                    orderable_qty=int(pnum(r.get("trde_able_qty"))),
                 )
         return out
 
@@ -132,7 +133,10 @@ class OrderService:
                 out["orderbook"] = _orderbook(value[0])
             elif name == "holding":
                 held = value.get(code)
-                out["holding_qty"] = held.qty if held else 0
+                # 매매가능수량 우선 — 미체결 매도가 걸린 물량은 팔 수 없다 (FR-22)
+                out["holding_qty"] = 0 if not held else (
+                    held.orderable_qty if held.orderable_qty is not None else held.qty
+                )
             elif name == "cash":
                 out["orderable_cash"] = value
         return out

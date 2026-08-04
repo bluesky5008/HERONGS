@@ -125,7 +125,7 @@ def test_quote_endpoint():
         q = tc.get("/api/stocks/005930/quote").json()
         assert q["cur_price"] == 230250  # AC-13: 입력 전 현재가
         assert q["orderbook"]["asks"][0]["price"] == 230500
-        assert q["holding_qty"] == 10 and q["orderable_cash"] == 499994528  # AC-14
+        assert q["holding_qty"] == 7 and q["orderable_cash"] == 499994528  # AC-14
         light = tc.get("/api/stocks/005930/quote?with_account=false").json()
         assert light["orderable_cash"] is None and light["orderbook"] is not None
 

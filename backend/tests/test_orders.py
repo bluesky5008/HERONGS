@@ -16,6 +16,7 @@ ACCOUNT_ROUTES = {
                 "prsm_dpst_aset_amt": "2000000",
                 "acnt_evlt_remn_indv_tot": [
                     {"stk_cd": "A005930", "stk_nm": "삼성전자", "rmnd_qty": "10",
+                     "trde_able_qty": "7",  # 3주는 미체결 매도로 묶임
                      "pur_pric": "70000", "cur_prc": "75000",
                      "evltv_prft": "50000", "prft_rt": "7.1"}]},
     "kt00001": {"entr": "500000", "ord_alow_amt": "000000499994528"},
@@ -71,7 +72,7 @@ async def test_quote_parses_orderbook_and_account(sf, settings):
     assert ob["bids"][0] == {"price": 230000, "qty": 17889}
     assert [a["price"] for a in ob["asks"]] == [230500, 231000, 231500]  # 없는 단은 제외
     assert ob["total_ask_qty"] == 148667 and ob["total_bid_qty"] == 941529
-    assert q["holding_qty"] == 10  # kt00018 보유 10주
+    assert q["holding_qty"] == 7  # 보유 10주 중 매매가능 7주 (미체결 매도 3주 제외)
     assert q["orderable_cash"] == 499994528  # 예수금이 아닌 주문가능금액 (D-5)
     assert q["errors"] == []
 
@@ -91,7 +92,7 @@ async def test_quote_absorbs_partial_failure(sf, settings):
     svc = OrderService(make_kiwoom_client(routes, settings), sf, settings)
     q = await svc.quote("005930")
     assert q["orderbook"] is None and q["errors"] == ["orderbook"]
-    assert q["cur_price"] == 230250 and q["holding_qty"] == 10  # 나머지는 정상 (NFR-07)
+    assert q["cur_price"] == 230250 and q["holding_qty"] == 7  # 나머지는 정상 (NFR-07)
 
 
 async def test_modify_blocks_over_limit(sf, settings):
