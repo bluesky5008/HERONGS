@@ -115,3 +115,25 @@ async def test_condition_source_feeds_candidates(sf, settings):
                     condition_source=cond_source)
     found = await col.collect_candidates()
     assert "123456" in found  # FR-13: 조건검색 결과가 후보군에 반영 (AC-08 단위)
+
+
+async def test_candidate_log_separates_ranking_and_condition(sf, settings, caplog):
+    """조건식 기여도를 로그로 판단할 수 있어야 한다 (2026-08-05 관측성 보강)."""
+    import logging
+
+    from herongs.models import ConditionMap
+
+    with sf() as s:
+        s.add(ConditionMap(seq="0", name="HERONGS_SWING", profile="swing", enabled=True))
+        s.commit()
+
+    async def cond_source(seq):
+        return ["005930", "123456"]  # 005930은 랭킹에도 있음 → 신규는 1건
+
+    col = Collector(make_kiwoom_client(ROUTES, settings), sf, settings,
+                    condition_source=cond_source)
+    with caplog.at_level(logging.INFO, logger="herongs.services.collector"):
+        await col.collect_candidates()
+    line = next(m for m in caplog.messages if m.startswith("후보 수집"))
+    assert "랭킹 3" in line  # 랭킹·ka90009 단계까지의 후보
+    assert "HERONGS_SWING 2건(신규 1)" in line

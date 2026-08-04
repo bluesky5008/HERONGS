@@ -89,7 +89,10 @@ class Collector:
         except Exception as e:
             log.warning("ka90009 실패: %s", e)
 
+        ranking_n = len(found)
+
         # 전략 매핑된 조건검색식 (FR-13, D-07)
+        cond_stats: list[str] = []
         if self._condition_source is not None:
             with self._sf() as s:
                 conds = s.scalars(
@@ -97,12 +100,21 @@ class Collector:
                 ).all()
             for cond in conds:
                 try:
-                    for code in await self._condition_source(cond.seq):
+                    codes = await self._condition_source(cond.seq)
+                    before = len(found)
+                    for code in codes:
                         add(code)
+                    # 조건식 갱신 필요 여부를 판단하려면 '몇 건을 뽑았고 그중 몇 건이
+                    # 랭킹에 없던 종목인지'가 필요하다 (2026-08-05 분석)
+                    cond_stats.append(f"{cond.name} {len(codes)}건(신규 {len(found) - before})")
                 except Exception as e:
+                    cond_stats.append(f"{cond.name} 실패")
                     log.warning("조건검색 %s(%s) 실패: %s", cond.name, cond.seq, e)
 
-        log.info("후보 수집: %d종목", len(found))
+        log.info(
+            "후보 수집: 총 %d종목 (랭킹 %d / 조건검색 %s)",
+            len(found), ranking_n, ", ".join(cond_stats) or "없음",
+        )
         return found
 
     # ── 위생 필터 (FR-12) ─────────────────────────────────────────
