@@ -20,6 +20,7 @@ class FakeWS:
     def __init__(self):
         self.q: asyncio.Queue = asyncio.Queue()
         self.sent: list[dict] = []
+        self.listed = False  # 실서버: CNSRLST 이전 CNSRREQ는 응답이 오지 않는다
 
     async def send(self, raw: str):
         msg = json.loads(raw)
@@ -28,11 +29,12 @@ class FakeWS:
         if t == "LOGIN":
             await self.q.put(json.dumps({"trnm": "LOGIN", "return_code": 0}))
         elif t == "CNSRLST":
+            self.listed = True
             await self.q.put(json.dumps({
                 "trnm": "CNSRLST",
                 "data": [["0", "HERONGS_SWING"], ["1", "HERONGS_SCALP"]],
             }))
-        elif t == "CNSRREQ" and msg.get("search_type") == "0":
+        elif t == "CNSRREQ" and msg.get("search_type") == "0" and self.listed:
             await self.q.put(json.dumps({
                 "trnm": "CNSRREQ",
                 "data": [{"9001": "A005930"}, {"9001": "A000660"}],
@@ -77,6 +79,25 @@ async def test_run_condition_returns_codes(sf, settings):
     assert codes == ["005930", "000660"]  # A 접두사 제거
     req = next(m for m in ws.sent if m.get("trnm") == "CNSRREQ")
     assert req["search_type"] == "0"  # 일반 실행 (ka10172)
+    await gw.close()
+
+
+async def test_condition_search_lists_conditions_first(sf, settings):
+    """CNSRREQ는 같은 세션에서 CNSRLST가 선행되어야 응답한다 (2026-08-05 실서버 A/B 확인)."""
+    gw, ws = make_gateway(sf, settings)
+    assert await gw.run_condition("1") == ["005930", "000660"]
+    order = [m["trnm"] for m in ws.sent if m["trnm"] in ("CNSRLST", "CNSRREQ")]
+    assert order.index("CNSRLST") < order.index("CNSRREQ")
+    await gw.run_condition("0")  # 세션당 1회만 조회
+    assert [m["trnm"] for m in ws.sent].count("CNSRLST") == 1
+    await gw.close()
+
+
+async def test_realtime_condition_registration_lists_conditions_first(sf, settings):
+    gw, ws = make_gateway(sf, settings)
+    await gw.register_realtime_condition("1")
+    order = [m["trnm"] for m in ws.sent if m["trnm"] in ("CNSRLST", "CNSRREQ")]
+    assert order.index("CNSRLST") < order.index("CNSRREQ")
     await gw.close()
 
 

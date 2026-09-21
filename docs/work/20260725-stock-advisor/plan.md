@@ -195,7 +195,10 @@ DB(`data/herongs.db`)·컨테이너 상태·alert_log 실측 근거:
   - **장외 관측(2026-08-05 00:10)**: 실제 실행 시 `총 448종목 (랭킹 448 / 조건검색 HERONGS_LONG 실패, HERONGS_SWING 실패, HERONGS_SCALP 실패)` — 조건검색 3종이 모두 타임아웃(`_REQ_TIMEOUT` 10초)하여 기여 0건. 다만 같은 시간대에 단발 실행은 성공(0종목)한 적도 있어 **장외 시간대의 불안정**으로 보이며 결론을 낼 수 없다.
   - **장중 확인 결과(2026-08-05) — 조건검색이 상시 실패 중, 원인 확정**: 09:09부터 13:29까지 **모든 스캔에서 3종 전부 10초 타임아웃**, 기여 0건(후보 426~436은 전량 랭킹 출처). WS는 09:00:20 로그인 후 끊김 없이 살아 있었으므로 연결 문제가 아니다.
   - **근본 원인: `CNSRLST`(조건 목록 조회) 선행 누락.** 한 세션 안에서 A/B 확인 — `CNSRLST` 이전 `CNSRREQ`는 타임아웃, `CNSRLST` 호출 직후 같은 요청이 성공. 프로덕션은 `CNSRLST`를 한 번도 호출하지 않는다(`refresh_conditions`는 `/api/conditions?refresh=true` 사용자 조작에서만 호출되고, 스케줄러·스캔 경로에는 없음). 즉 **조건검색은 배포 이래 한 번도 후보에 기여한 적이 없을 가능성이 높다** — AC-08 당시 "장중 스캔 정상 동작"은 랭킹만으로도 성립했기에 가려졌다.
-  - 조치 방향: 세션 수립 시(`connect()` 또는 `_reconnect` 직후) 조건 목록을 1회 조회해 세션에 적재한 뒤 `CNSRREQ`를 보내도록 보장. 수정 후에야 "조건식 내용이 적절한가"를 판단할 수 있다.
+  - **수정 완료(2026-09-22, 경량 경로)**: `RealtimeGateway._ensure_conditions()` 신설 — `CNSRREQ`를 보내는 모든 경로(`run_condition`, `register_realtime_condition`, `_reconnect`의 조건식 재등록)가 세션당 1회 `CNSRLST`를 선행하도록 보장한다. 세션 식별은 `connect()`에서 새 WS를 잡을 때 `_cnsr_listed`를 초기화하는 방식이고, 스캔 잡과 scalp 잡이 동시에 선행 조회를 시도해 `_pending["CNSRLST"]` future를 덮어쓰지 않도록 `_cnsr_lock`으로 직렬화했다.
+  - 검증(TDD, 실패→성공): 재현은 **WS 목을 실서버 동작에 맞춘 것**으로 했다 — `FakeWS`가 `CNSRLST` 이전의 `CNSRREQ`에 응답하지 않도록 바꾸자 기존 `test_run_condition_returns_codes`가 운영과 같은 **10초 TimeoutError**로 실패했다(3 failed / 76 passed). 수정 후 신규 2건 포함 **79건 전부 통과, 20.57초 → 0.42초**. 신규: `test_condition_search_lists_conditions_first`(선행 순서 + 세션당 1회), `test_realtime_condition_registration_lists_conditions_first`
+  - 부수 효과(의도): 세션 수립 후 첫 조건검색 때 `refresh_conditions()`가 함께 돌아 HTS에서 새로 만든 조건식이 `condition_map`에 자동 등재된다(기존에는 `/api/conditions?refresh=true` 사용자 조작에서만). 매핑(`profile`)은 그대로 보존된다.
+  - **실서버 검증 잔여**: 장중 스캔 로그의 `조건검색 … N건(신규 K)` 기여도 확인, 그리고 기여가 확인된 뒤에야 "조건식 내용이 적절한가"를 판단할 수 있다. 관측 포인트: 조건검색 후보가 더해지면 스캔 소요가 늘어 AC-19 여유(4.5분)를 잠식할 수 있다
 - [ ] **운영 주의 — 키움 WS는 계정당 1세션**(2026-08-05 확인): 진단용으로 별도 WS를 열면 **운영 앱의 세션이 끊긴다**(`received 1000 (OK) Bye`). 앱은 지수 백오프로 자동 재접속·재등록해 1초 내 복구되는 것을 확인했으나(13:34:22 끊김 → 13:34:25 재등록 완료), 장중 WS 진단은 이 영향을 감수하고 수행할 것
 - [ ] 장전 브리핑 갭 상위 종목: 예상체결 TR 확인·매핑 후 추가 (설계 §4.1 갱신 필요)
 - [x] 텔레그램 봇 생성·연동 (2026-07-25 완료: @HERONGS_ALARM_BOT, heartbeat 실수신 확인). 강제 종료 시에는 종료 알림이 발송되지 않음(정상 종료에서만 발송) — 운영 시 참고

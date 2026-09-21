@@ -43,6 +43,8 @@ class RealtimeGateway:
         self._lock = asyncio.Lock()
         self._registered: list[dict] = []  # 재접속 시 재등록용 REG payload (설계 §6)
         self._rt_conditions: list[str] = []  # 실시간 등록된 조건식 seq
+        self._cnsr_listed = False  # 이번 세션에서 CNSRLST를 마쳤는가
+        self._cnsr_lock = asyncio.Lock()
         self.on_real = None  # async (data: dict) — REAL 수신 콜백
 
     # ── 접속·수신 루프 ────────────────────────────────────────────
@@ -53,6 +55,7 @@ class RealtimeGateway:
                 return
             token = await self._client.token()
             self._ws = await self._ws_connect(self._settings.ws_url)
+            self._cnsr_listed = False  # 세션이 바뀌면 CNSRLST를 다시 해야 한다
             await self._send({"trnm": "LOGIN", "token": token})
             resp = json.loads(await self._ws.recv())
             if resp.get("return_code", 0) != 0:
@@ -96,6 +99,8 @@ class RealtimeGateway:
                 await self.connect()
                 for payload in self._registered:
                     await self._send(payload)
+                if self._rt_conditions:
+                    await self._ensure_conditions()
                 for seq in self._rt_conditions:
                     await self._send(_cnsr_req(seq, realtime=True))
                 log.info("WS 재접속·재등록 완료")
@@ -128,8 +133,20 @@ class RealtimeGateway:
             s.commit()
         return [{"seq": str(e[0]), "name": str(e[1])} for e in items]
 
+    async def _ensure_conditions(self) -> None:
+        """CNSRREQ는 같은 세션에서 CNSRLST가 선행되어야 응답한다 (2026-08-05 실서버 A/B 확인).
+
+        선행이 없으면 서버가 아무 응답도 보내지 않아 요청이 타임아웃된다.
+        """
+        await self.connect()  # 새 세션이면 여기서 _cnsr_listed가 초기화된다
+        async with self._cnsr_lock:
+            if not self._cnsr_listed:
+                await self.refresh_conditions()
+                self._cnsr_listed = True
+
     async def run_condition(self, seq: str) -> list[str]:
         """조건검색 일반 실행(CNSRREQ, ka10172) → 종목코드 목록."""
+        await self._ensure_conditions()
         resp = await self._request("CNSRREQ", _cnsr_req(seq, realtime=False))
         codes = []
         for row in resp.get("data") or []:
@@ -143,7 +160,7 @@ class RealtimeGateway:
         """조건검색 실시간 등록 (ka10173). 이미 등록된 seq는 무시 — 주기 동기화 대비 멱등."""
         if seq in self._rt_conditions:
             return
-        await self.connect()
+        await self._ensure_conditions()
         await self._send(_cnsr_req(seq, realtime=True))
         self._rt_conditions.append(seq)
 
