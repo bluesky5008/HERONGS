@@ -148,12 +148,16 @@ class RealtimeGateway:
         """조건검색 일반 실행(CNSRREQ, ka10172) → 종목코드 목록."""
         await self._ensure_conditions()
         resp = await self._request("CNSRREQ", _cnsr_req(seq, realtime=False))
+        rows = resp.get("data") or []
         codes = []
-        for row in resp.get("data") or []:
+        for row in rows:
             code = row.get("9001") or row.get("jmcode") or ""
             code = str(code).strip().removeprefix("A")
             if code:
                 codes.append(code)
+        # 기여 0건일 때 '조건식이 빈 것'과 '필드 키가 달라 못 읽은 것'을 구분해야 한다
+        if rows and not codes:
+            log.warning("조건검색 %s: 응답 %d행이나 종목코드 파싱 0건 — 샘플 %s", seq, len(rows), rows[0])
         return codes
 
     async def register_realtime_condition(self, seq: str) -> None:

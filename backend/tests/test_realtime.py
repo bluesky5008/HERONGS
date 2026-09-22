@@ -21,6 +21,7 @@ class FakeWS:
         self.q: asyncio.Queue = asyncio.Queue()
         self.sent: list[dict] = []
         self.listed = False  # 실서버: CNSRLST 이전 CNSRREQ는 응답이 오지 않는다
+        self.cnsr_rows = [{"9001": "A005930"}, {"9001": "A000660"}]
 
     async def send(self, raw: str):
         msg = json.loads(raw)
@@ -35,10 +36,7 @@ class FakeWS:
                 "data": [["0", "HERONGS_SWING"], ["1", "HERONGS_SCALP"]],
             }))
         elif t == "CNSRREQ" and msg.get("search_type") == "0" and self.listed:
-            await self.q.put(json.dumps({
-                "trnm": "CNSRREQ",
-                "data": [{"9001": "A005930"}, {"9001": "A000660"}],
-            }))
+            await self.q.put(json.dumps({"trnm": "CNSRREQ", "data": self.cnsr_rows}))
 
     async def recv(self) -> str:
         return await self.q.get()
@@ -98,6 +96,25 @@ async def test_realtime_condition_registration_lists_conditions_first(sf, settin
     await gw.register_realtime_condition("1")
     order = [m["trnm"] for m in ws.sent if m["trnm"] in ("CNSRLST", "CNSRREQ")]
     assert order.index("CNSRLST") < order.index("CNSRREQ")
+    await gw.close()
+
+
+async def test_run_condition_warns_when_rows_present_but_unparsed(sf, settings, caplog):
+    """응답은 왔는데 종목코드가 0건이면 조건식이 빈 것인지 필드 키가 다른 것인지 구분해야 한다."""
+    gw, ws = make_gateway(sf, settings)
+    ws.cnsr_rows = [{"jmcode_v2": "A005930"}]  # 알 수 없는 키
+    with caplog.at_level("WARNING"):
+        assert await gw.run_condition("1") == []
+    assert "1행" in caplog.text and "jmcode_v2" in caplog.text
+    await gw.close()
+
+
+async def test_run_condition_quiet_when_condition_matches_nothing(sf, settings, caplog):
+    gw, ws = make_gateway(sf, settings)
+    ws.cnsr_rows = []  # 조건식이 실제로 0종목
+    with caplog.at_level("WARNING"):
+        assert await gw.run_condition("1") == []
+    assert "파싱" not in caplog.text
     await gw.close()
 
 
