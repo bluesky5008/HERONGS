@@ -1,13 +1,13 @@
 """Collector — 깔때기 스캔 1단계 + 시세 적재 (FR-03/10/12/13, NFR-06, 설계 §5.1)."""
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 
 from ..config import Settings
 from ..kiwoom import KiwoomClient
-from ..models import ConditionMap, DailyPrice, Instrument, MarketRegime
+from ..models import ConditionMap, DailyPrice, Instrument, MarketRegime, StockInfoDaily
 from ..scoring import Candidate, classify_regime
 from ..utils import pnum, price
 
@@ -28,6 +28,7 @@ RANKING_CALLS = [
 
 MIN_AVG_TRADING_VALUE = 1_000_000_000  # 위생 필터 기본 하한 10억 (setting으로 조정)
 RANKING_PAGES = 1  # 랭킹 TR당 조회 페이지 (DCR-003, setting `scan.ranking_pages`로 조정)
+INFO_CACHE_DAYS = 1  # 기본정보 캐시 유효 거래일 (DCR-004, setting `scan.info_cache_days`, 0이면 미사용)
 
 
 class Collector:
@@ -151,10 +152,13 @@ class Collector:
             {"stk_cd": code, "base_dt": datetime.now().strftime("%Y%m%d"), "upd_stkpc_tp": "1"},
         )
         rows = data.get("stk_dt_pole_chart_qry") or []
+        today = date.today()
         new_rows = []
         for r in rows:
             dt = datetime.strptime(r["dt"], "%Y%m%d").date()
-            if latest is not None and dt <= latest:
+            # 당일 행은 장중에 계속 변하므로 매번 갱신한다 (FR-27). 건너뛰면 점수 계산의
+            # 종가·거래량이 그 종목을 처음 스캔한 시점에 고정된다.
+            if latest is not None and dt <= latest and dt != today:
                 continue
             new_rows.append(
                 DailyPrice(
@@ -167,7 +171,8 @@ class Collector:
             )
         if new_rows:
             with self._sf() as s:
-                s.add_all(new_rows)
+                for row in new_rows:
+                    s.merge(row)  # PK(code,date) 기준 신규 저장 또는 갱신
                 # 20일 평균 거래대금 갱신 → 위생 필터 근거
                 closes = s.scalars(
                     select(DailyPrice).where(DailyPrice.code == code)
@@ -221,10 +226,45 @@ class Collector:
 
     # ── 상세 (깔때기 2단계) ───────────────────────────────────────
 
+    def _cached_info(self, code: str) -> StockInfoDaily | None:
+        """유효 기간 안의 기본정보 캐시. 설정이 0이면 캐시를 쓰지 않는다 (FR-26)."""
+        from ..db import get_setting_float
+
+        with self._sf() as s:
+            days = int(get_setting_float(s, "scan.info_cache_days", INFO_CACHE_DAYS))
+            if days <= 0:
+                return None
+            cutoff = date.today() - timedelta(days=days - 1)
+            return s.scalars(
+                select(StockInfoDaily)
+                .where(StockInfoDaily.code == code, StockInfoDaily.date >= cutoff)
+                .order_by(StockInfoDaily.date.desc())
+                .limit(1)
+            ).first()
+
+    def _store_info(self, code: str, data: dict) -> StockInfoDaily:
+        def opt(key: str) -> float | None:
+            return pnum(data.get(key), None) if data.get(key) else None
+
+        row = StockInfoDaily(
+            code=code, date=date.today(),
+            per=opt("per"), pbr=opt("pbr"), roe=opt("roe"), credit_ratio=opt("crd_rt"),
+        )
+        with self._sf() as s:
+            s.merge(row)
+            s.commit()
+        return row
+
     async def build_candidate(
         self, code: str, meta: dict, supply_map: dict[str, tuple[int, int]]
     ) -> Candidate:
-        data, _ = await self._client.call("ka10001", {"stk_cd": code})
+        # ka10001은 서버 응답이 9~15초로 느려 스캔 지연의 원인이다. 값이 일 단위로만
+        # 의미가 있으므로 거래일당 1회만 호출한다 (DCR-004).
+        info = self._cached_info(code)
+        data: dict = {}
+        if info is None:
+            data, _ = await self._client.call("ka10001", {"stk_cd": code})
+            info = self._store_info(code, data)
         await self.ingest_daily(code)
         closes, volumes, tv = self.load_series(code)
         f_days, i_days = supply_map.get(code, (0, 0))
@@ -235,14 +275,14 @@ class Collector:
                 s.commit()
         return Candidate(
             code=code,
-            name=data.get("stk_nm") or meta.get("name", ""),
+            name=data.get("stk_nm") or meta.get("name", "") or (inst.name if inst else ""),
             closes=closes,
             volumes=volumes,
             trading_value=meta.get("trde_prica") or tv,
-            per=pnum(data.get("per"), None) if data.get("per") else None,
-            pbr=pnum(data.get("pbr"), None) if data.get("pbr") else None,
-            roe=pnum(data.get("roe"), None) if data.get("roe") else None,
-            credit_ratio=pnum(data.get("crd_rt"), None) if data.get("crd_rt") else None,
+            per=info.per,
+            pbr=info.pbr,
+            roe=info.roe,
+            credit_ratio=info.credit_ratio,
             foreign_net=[1.0] * f_days,
             inst_net=[1.0] * i_days,
             change_rate=meta.get("flu_rt", 0.0) or 0.0,

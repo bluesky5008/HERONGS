@@ -81,7 +81,8 @@ flowchart LR
 | 테이블 | 주요 컬럼 | 용도 |
 |---|---|---|
 | instrument | code PK, name, market, is_managed, is_halted, avg_trading_value | 종목 마스터 + 위생 필터 플래그 (FR-12) |
-| daily_price | code+date PK, open/high/low/close, volume, trading_value | 일봉 적재 (NFR-06) |
+| daily_price | code+date PK, open/high/low/close, volume, trading_value | 일봉 적재 (NFR-06). **당일 행은 매 스캔 갱신**(DCR-004) |
+| stock_info_daily | code+date PK, per, pbr, roe, credit_ratio | ka10001 기본정보 일 1회 캐시 (DCR-004, FR-26) |
 | recommendation | id PK, ts, profile, code, score, score_breakdown(JSON), rank, regime | 추천 이력 (FR-04/05/16) |
 | recommendation_perf | rec_id+horizon PK, return_pct, evaluated_at | 경과 수익률 (FR-16) |
 | opinion | id PK, ts, code, profile, stance(buy/sell/hold), rationale(JSON) | 개별 종목 의견 이력 (FR-06/07) |
@@ -133,7 +134,9 @@ GET  /api/regime, /api/conditions, /api/settings     국면·조건식 매핑·�
 3. 위생 필터(FR-12): instrument 플래그·거래대금 하한(기본 10억)으로 탈락 처리.
 4. 후보만 상세 TR 조회(스로틀 준수) → IndicatorEngine 지표 계산.
    - **실측 규모(2026-08-04)**: 1페이지 기준 후보 450 → 필터 통과 299. 설계 초안의 "50~150종목" 가정은 실제와 달랐다.
-   - **소요 시간 = 랭킹 수집 35초 + 후보 수 ÷ 60분**. `ka10001`·`ka10081`이 서로 다른 TR 게이트(각 1회/초)를 쓰므로 후보 1건이 1초를 소비한다. TR 수를 줄여도 시간은 줄지 않으며 후보 수만이 지렛대다(DCR-003).
+   - ~~**소요 시간 = 랭킹 수집 35초 + 후보 수 ÷ 60분**. `ka10001`·`ka10081`이 서로 다른 TR 게이트(각 1회/초)를 쓰므로 후보 1건이 1초를 소비한다. TR 수를 줄여도 시간은 줄지 않으며 후보 수만이 지렛대다(DCR-003).~~ → **DCR-004로 무효화(2026-09-23)**: 이 공식은 게이트(1회/초)가 병목일 때만 성립한다. `ka10001`의 서버 응답이 9~15초로 느려져 병목이 게이트에서 서버로 옮겨갔고, 호출 수를 줄이면 그만큼 시간이 줄어든다.
+   - **기본정보는 종목·거래일당 1회만 조회**한다(`stock_info_daily` 캐시, setting `scan.info_cache_days` 기본 1 — DCR-004, FR-26). 같은 거래일의 이후 스캔은 저장된 값을 쓴다.
+   - **당일 일봉은 매 스캔 갱신**한다(DCR-004, FR-27). 종전에는 최초 1회만 기록되어 2회차 이후 `ka10081` 응답이 폐기되고 장중 지표가 첫 스캔 시점에 고정됐다.
 5. ScoringEngine: 3개 프로파일 병렬 스코어링, 시장 국면으로 기준점수·개수 보정.
 6. RecommendationService: 추천 저장, 직전 스캔과 비교해 신규 진입 종목은 텔레그램 알림(FR-11).
 

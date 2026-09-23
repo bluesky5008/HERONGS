@@ -59,7 +59,7 @@ def test_db_tables_created():
     assert tables == {
         "instrument", "daily_price", "recommendation", "recommendation_perf",
         "opinion", "order_log", "condition_map", "market_regime",
-        "watchlist", "alert_log", "setting",
+        "watchlist", "alert_log", "setting", "stock_info_daily",
     }
 
 

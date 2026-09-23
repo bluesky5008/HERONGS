@@ -39,6 +39,19 @@ class DailyPrice(Base):
     trading_value: Mapped[float] = mapped_column(Float, default=0.0)
 
 
+class StockInfoDaily(Base):
+    """ka10001 기본정보 일 1회 캐시 (DCR-004, FR-26)."""
+
+    __tablename__ = "stock_info_daily"
+
+    code: Mapped[str] = mapped_column(String(12), primary_key=True)
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    per: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pbr: Mapped[float | None] = mapped_column(Float, nullable=True)
+    roe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    credit_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
 class Recommendation(Base):
     """추천 이력 (FR-04/05/16)."""
 

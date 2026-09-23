@@ -1,5 +1,7 @@
 """WU-06 — 깔때기 수집, 위생 필터, 일봉 증분 적재."""
 
+from datetime import date
+
 from herongs.models import DailyPrice, Instrument
 from herongs.services.collector import Collector
 
@@ -83,6 +85,54 @@ async def test_ingest_daily_incremental(sf, settings):
         assert s.query(DailyPrice).count() == 2
         inst = s.get(Instrument, "005930")
         assert inst.avg_trading_value > 0  # 위생 필터 근거 갱신
+
+
+async def test_ingest_daily_refreshes_today_row(sf, settings):
+    """당일 행은 매 스캔 갱신된다 — 장중 지표가 첫 스캔 시점에 고정되면 안 된다 (FR-27, AC-21)."""
+    live = {"prc": "70000", "qty": "1000"}
+    routes = {**ROUTES, "ka10081": lambda req: {"stk_dt_pole_chart_qry": [
+        {"dt": date.today().strftime("%Y%m%d"), "cur_prc": live["prc"],
+         "open_pric": "69000", "high_pric": "70500", "low_pric": "68500",
+         "trde_qty": live["qty"], "trde_prica": "70"}]}}
+    col = Collector(make_kiwoom_client(routes, settings), sf, settings)
+    await col.ingest_daily("005930")
+    live["prc"], live["qty"] = "72000", "5000"  # 장중 시세 변동
+    await col.ingest_daily("005930")
+    with sf() as s:
+        rows = s.query(DailyPrice).all()
+        assert len(rows) == 1  # 중복 적재 없음
+        assert rows[0].close == 72000.0 and rows[0].volume == 5000
+
+
+def _counting_info_routes(calls: list):
+    def info(req):
+        calls.append(1)
+        return {"stk_nm": "삼성전자", "per": "9.5", "pbr": "1.1", "roe": "10.2", "crd_rt": "0.5"}
+    return {**ROUTES, "ka10001": info}
+
+
+async def test_stock_info_fetched_once_per_day(sf, settings):
+    """기본정보는 종목·거래일당 1회만 조회한다 — ka10001이 스캔 지연의 원인 (FR-26, AC-20)."""
+    calls: list = []
+    col = Collector(make_kiwoom_client(_counting_info_routes(calls), settings), sf, settings)
+    first = await col.build_candidate("005930", {"name": "삼성전자"}, {})
+    second = await col.build_candidate("005930", {"name": "삼성전자"}, {})
+    assert len(calls) == 1  # 2회차는 캐시 사용
+    assert (second.per, second.pbr, second.roe, second.credit_ratio) == (9.5, 1.1, 10.2, 0.5)
+    assert second.per == first.per and second.name == "삼성전자"
+
+
+async def test_stock_info_cache_disabled_by_setting(sf, settings):
+    """설정 0이면 캐시를 쓰지 않는다 — 코드 되돌림 없는 롤백 경로 (DCR-004)."""
+    from herongs.db import set_setting
+
+    with sf() as s:
+        set_setting(s, "scan.info_cache_days", "0")
+    calls: list = []
+    col = Collector(make_kiwoom_client(_counting_info_routes(calls), settings), sf, settings)
+    await col.build_candidate("005930", {"name": "삼성전자"}, {})
+    await col.build_candidate("005930", {"name": "삼성전자"}, {})
+    assert len(calls) == 2
 
 
 async def test_scan_end_to_end_excludes_halted(sf, settings):
