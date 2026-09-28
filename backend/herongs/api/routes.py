@@ -22,6 +22,8 @@ from ..services.orders import GuardrailError
 router = APIRouter()
 
 SESSION_COOKIE = "herongs_session"
+# 위키 인증 프록시(yongs-wiki.com/herongs)와 Tailscale 직접 접속이 같은 경로를 쓴다 (DCR-005)
+BASE_PATH = "/herongs"
 SESSION_TTL = 12 * 3600
 
 # 로그인 무차별 대입 방어 (DCR-001): 연속 실패 5회 → 300초 전역 잠금
@@ -73,7 +75,7 @@ def login(body: LoginBody, request: Request, response: Response):
     token = new_session_token()
     st.sessions[token] = time.time() + SESSION_TTL
     response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="strict",
-                        max_age=SESSION_TTL)
+                        max_age=SESSION_TTL, path=BASE_PATH)  # 위키 경로로 새지 않게
     return {"ok": True}
 
 

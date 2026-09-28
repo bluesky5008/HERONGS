@@ -30,58 +30,81 @@ def test_healthz():
         assert tc.get("/healthz").json() == {"status": "ok"}
 
 
+def test_served_under_base_path():
+    """위키 프록시와 Tailscale 직접 접속이 같은 경로 체계를 쓴다 (DCR-005, AC-23)."""
+    with TestClient(make_app()) as tc:
+        assert tc.get("/herongs/api/regime").status_code == 200
+        assert tc.get("/api/regime").status_code == 404  # 위키의 /api와 겹치지 않는다
+
+
+def test_root_redirects_to_base_path():
+    with TestClient(make_app()) as tc:
+        resp = tc.get("/", follow_redirects=False)
+        assert resp.status_code in (307, 308)
+        assert resp.headers["location"] == "/herongs/"
+        assert tc.get("/healthz").status_code == 200  # 도커 헬스체크는 루트 유지 (AC-24)
+
+
+def test_session_cookie_scoped_to_base_path():
+    """HERONGS 세션 쿠키가 위키 경로로 새지 않는다 (AC-25)."""
+    with TestClient(make_app(pin="1234")) as tc:
+        resp = tc.post("/herongs/api/auth/login", json={"pin": "1234"})
+        assert resp.status_code == 200
+        assert "Path=/herongs" in resp.headers["set-cookie"]
+
+
 def test_pin_auth_required():
     with TestClient(make_app(pin="1234")) as tc:
-        assert tc.get("/api/regime").status_code == 401  # 미로그인 차단 (§7)
-        assert tc.post("/api/auth/login", json={"pin": "9999"}).status_code == 401
-        resp = tc.post("/api/auth/login", json={"pin": "1234"})
+        assert tc.get("/herongs/api/regime").status_code == 401  # 미로그인 차단 (§7)
+        assert tc.post("/herongs/api/auth/login", json={"pin": "9999"}).status_code == 401
+        resp = tc.post("/herongs/api/auth/login", json={"pin": "1234"})
         assert resp.status_code == 200
-        assert tc.get("/api/regime").status_code == 200  # 세션 쿠키로 통과
+        assert tc.get("/herongs/api/regime").status_code == 200  # 세션 쿠키로 통과
 
 
 def test_login_lockout_after_failures():
     app = make_app(pin="1234")
     with TestClient(app) as tc:
         for _ in range(5):
-            assert tc.post("/api/auth/login", json={"pin": "9999"}).status_code == 401
+            assert tc.post("/herongs/api/auth/login", json={"pin": "9999"}).status_code == 401
         # 잠금 중에는 정답도 거부 (AC-SEC-01)
-        assert tc.post("/api/auth/login", json={"pin": "1234"}).status_code == 429
+        assert tc.post("/herongs/api/auth/login", json={"pin": "1234"}).status_code == 429
         app.state.login_attempts["locked_until"] = time.time() - 1  # 잠금 만료 시뮬레이션
-        assert tc.post("/api/auth/login", json={"pin": "1234"}).status_code == 200
+        assert tc.post("/herongs/api/auth/login", json={"pin": "1234"}).status_code == 200
 
 
 def test_login_success_resets_fail_count():
     with TestClient(make_app(pin="1234")) as tc:
         for _ in range(4):
-            tc.post("/api/auth/login", json={"pin": "9999"})
-        assert tc.post("/api/auth/login", json={"pin": "1234"}).status_code == 200
+            tc.post("/herongs/api/auth/login", json={"pin": "9999"})
+        assert tc.post("/herongs/api/auth/login", json={"pin": "1234"}).status_code == 200
         # 성공으로 카운터 리셋 → 이후 오답 1회는 401이지 잠금 아님 (AC-SEC-02)
-        assert tc.post("/api/auth/login", json={"pin": "9999"}).status_code == 401
-        assert tc.post("/api/auth/login", json={"pin": "1234"}).status_code == 200
+        assert tc.post("/herongs/api/auth/login", json={"pin": "9999"}).status_code == 401
+        assert tc.post("/herongs/api/auth/login", json={"pin": "1234"}).status_code == 200
 
 
 def test_auth_disabled_when_no_pin():
     with TestClient(make_app(pin="")) as tc:
-        assert tc.get("/api/regime").status_code == 200
+        assert tc.get("/herongs/api/regime").status_code == 200
 
 
 def test_order_preview_confirm_via_api():
     with TestClient(make_app()) as tc:
-        resp = tc.post("/api/orders/preview", json={
+        resp = tc.post("/herongs/api/orders/preview", json={
             "side": "buy", "code": "005930", "qty": 10, "price": 70000,
         })
         assert resp.status_code == 200
         pv = resp.json()
         assert pv["amount"] == 700000  # 확인 단계 정보 (FR-08/15)
 
-        resp = tc.post("/api/orders/confirm", json={"preview_id": pv["preview_id"]})
+        resp = tc.post("/herongs/api/orders/confirm", json={"preview_id": pv["preview_id"]})
         assert resp.status_code == 200
         assert resp.json()["ord_no"] == "0000138"  # AC-04 흐름
 
 
 def test_order_guardrail_via_api():
     with TestClient(make_app()) as tc:
-        resp = tc.post("/api/orders/preview", json={
+        resp = tc.post("/herongs/api/orders/preview", json={
             "side": "buy", "code": "005930", "qty": 1000, "price": 70000,
         })
         assert resp.status_code == 422
@@ -93,28 +116,28 @@ def test_kiwoom_rejection_returns_502_with_reason():
     routes = {**ACCOUNT_ROUTES,
               "kt10000": {"return_code": 20, "return_msg": "(RC4057:모의투자 장시작전)"}}
     with TestClient(make_app(routes=routes)) as tc:
-        pv = tc.post("/api/orders/preview", json={
+        pv = tc.post("/herongs/api/orders/preview", json={
             "side": "buy", "code": "005930", "qty": 1, "price": 70000,
         }).json()
-        resp = tc.post("/api/orders/confirm", json={"preview_id": pv["preview_id"]})
+        resp = tc.post("/herongs/api/orders/confirm", json={"preview_id": pv["preview_id"]})
         assert resp.status_code == 502
         assert "장시작전" in resp.json()["detail"]
 
 
 def test_confirm_without_preview_via_api():
     with TestClient(make_app()) as tc:
-        resp = tc.post("/api/orders/confirm", json={"preview_id": "forged"})
+        resp = tc.post("/herongs/api/orders/confirm", json={"preview_id": "forged"})
         assert resp.status_code == 422  # AC-04: preview 우회 불가
 
 
 def test_order_modify_via_api():
     with TestClient(make_app()) as tc:
-        resp = tc.put("/api/orders/0000138",
+        resp = tc.put("/herongs/api/orders/0000138",
                       json={"code": "005930", "qty": 5, "price": 71000})
         assert resp.status_code == 200
         assert resp.json()["ord_no"] == "0000140"  # FR-09 정정
 
-        resp = tc.put("/api/orders/0000138",
+        resp = tc.put("/herongs/api/orders/0000138",
                       json={"code": "005930", "qty": 1000, "price": 70000})
         assert resp.status_code == 422
         assert "상한" in resp.json()["detail"]  # AC-SEC-03: 정정 가드레일
@@ -122,26 +145,26 @@ def test_order_modify_via_api():
 
 def test_quote_endpoint():
     with TestClient(make_app()) as tc:
-        q = tc.get("/api/stocks/005930/quote").json()
+        q = tc.get("/herongs/api/stocks/005930/quote").json()
         assert q["cur_price"] == 230250  # AC-13: 입력 전 현재가
         assert q["orderbook"]["asks"][0]["price"] == 230500
         assert q["holding_qty"] == 7 and q["orderable_cash"] == 499994528  # AC-14
-        light = tc.get("/api/stocks/005930/quote?with_account=false").json()
+        light = tc.get("/herongs/api/stocks/005930/quote?with_account=false").json()
         assert light["orderable_cash"] is None and light["orderbook"] is not None
 
 
 def test_watchlist_crud():
     with TestClient(make_app()) as tc:
-        assert tc.get("/api/watchlist").json() == []
-        tc.post("/api/watchlist", json={"code": "005930"})
-        items = tc.get("/api/watchlist").json()
+        assert tc.get("/herongs/api/watchlist").json() == []
+        tc.post("/herongs/api/watchlist", json={"code": "005930"})
+        items = tc.get("/herongs/api/watchlist").json()
         assert items[0]["code"] == "005930"
-        tc.delete("/api/watchlist/005930")
-        assert tc.get("/api/watchlist").json() == []
+        tc.delete("/herongs/api/watchlist/005930")
+        assert tc.get("/herongs/api/watchlist").json() == []
 
 
 def test_portfolio_endpoint():
     with TestClient(make_app()) as tc:
-        pf = tc.get("/api/portfolio").json()
+        pf = tc.get("/herongs/api/portfolio").json()
         assert pf["stocks"][0]["code"] == "005930"
         assert pf["total_eval"] == 1100000.0

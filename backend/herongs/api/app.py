@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import Settings, load_settings
@@ -14,7 +14,7 @@ from ..db import init_db
 from ..kiwoom import KiwoomClient
 from ..kiwoom.errors import KiwoomError
 from ..logsetup import register_secret, setup_logging
-from .routes import router
+from .routes import BASE_PATH, router
 
 log = logging.getLogger(__name__)
 
@@ -83,16 +83,20 @@ def create_app(
         log.warning("키움 API 오류 응답: %s", exc)
         return JSONResponse(status_code=502, content={"detail": exc.return_msg or str(exc)})
 
-    app.include_router(router, prefix="/api")
+    app.include_router(router, prefix=f"{BASE_PATH}/api")
 
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}
 
-    # PWA 정적 서빙 (D-04): 빌드 산출물이 있으면 루트에 마운트
+    @app.get("/", include_in_schema=False)
+    def root():
+        return RedirectResponse(f"{BASE_PATH}/")
+
+    # PWA 정적 서빙 (D-04): 빌드 산출물이 있으면 BASE_PATH에 마운트
     static_dir = Path(__file__).resolve().parents[2] / "static"
     if static_dir.is_dir():
-        app.mount("/", StaticFiles(directory=static_dir, html=True), name="pwa")
+        app.mount(BASE_PATH, StaticFiles(directory=static_dir, html=True), name="pwa")
 
     return app
 
