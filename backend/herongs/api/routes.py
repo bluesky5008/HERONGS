@@ -1,5 +1,7 @@
 """내부 REST API (설계 §4.2) + PIN 세션 인증 (§7)."""
 
+import asyncio
+import logging
 import secrets
 import time
 from datetime import datetime
@@ -20,6 +22,8 @@ from ..models import (
 from ..services.orders import GuardrailError
 
 router = APIRouter()
+
+log = logging.getLogger(__name__)
 
 SESSION_COOKIE = "herongs_session"
 # 위키 인증 프록시(yongs-wiki.com/herongs)와 Tailscale 직접 접속이 같은 경로를 쓴다 (DCR-005)
@@ -116,13 +120,34 @@ def recommendations(request: Request, profile: str = "swing"):
     }
 
 
-@router.post("/scan")
+@router.post("/scan", status_code=202)
 async def run_scan(request: Request):
-    """수동 스캔 트리거 (AC-02)."""
+    """수동 스캔 트리거 (AC-02). 스캔은 수 분이 걸려 외부 경로의 Cloudflare 100초 제한에
+    걸리므로 백그라운드로 돌리고 즉시 응답한다 (DCR-005, FR-29)."""
     _auth(request)
     st = request.app.state
-    await st.collector.update_regime()
-    return await st.recommendations.run_scan()
+    if st.scan_state["running"]:
+        raise HTTPException(409, "스캔이 이미 진행 중입니다")
+    st.scan_state.update(running=True, error=None)  # 태스크 시작 전에 세워 중복 요청을 막는다
+    st.scan_task = asyncio.create_task(_manual_scan(st))  # 참조 유지(GC 방지)
+    return {"status": "started"}
+
+
+@router.get("/scan")
+def scan_status(request: Request):
+    _auth(request)
+    return request.app.state.scan_state
+
+
+async def _manual_scan(st) -> None:
+    try:
+        await st.collector.update_regime()
+        await st.recommendations.run_scan()
+    except Exception as e:
+        log.exception("수동 스캔 실패")
+        st.scan_state["error"] = str(e)
+    finally:
+        st.scan_state.update(running=False, finished_at=datetime.now().isoformat(timespec="seconds"))
 
 
 # ── 개별 종목 분석 (FR-06/07) ────────────────────────────────────

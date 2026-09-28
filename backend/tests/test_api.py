@@ -168,3 +168,44 @@ def test_portfolio_endpoint():
         pf = tc.get("/herongs/api/portfolio").json()
         assert pf["stocks"][0]["code"] == "005930"
         assert pf["total_eval"] == 1100000.0
+
+
+def _stub_scan(app, run):
+    async def no_regime():
+        return None
+
+    app.state.collector.update_regime = no_regime
+    app.state.recommendations.run_scan = run
+
+
+def test_manual_scan_runs_in_background():
+    """수동 스캔은 수 분이 걸려 Cloudflare 100초 제한에 걸린다 — 즉시 202 (DCR-005, AC-26)."""
+    import asyncio
+
+    app = make_app()
+
+    async def slow_scan():
+        await asyncio.sleep(0.3)
+
+    _stub_scan(app, slow_scan)
+    with TestClient(app) as tc:
+        assert tc.post("/herongs/api/scan").status_code == 202
+        assert tc.post("/herongs/api/scan").status_code == 409  # 진행 중 중복 실행 차단
+        assert tc.get("/herongs/api/scan").json()["running"] is True
+        time.sleep(0.6)
+        status = tc.get("/herongs/api/scan").json()
+        assert status["running"] is False and status["finished_at"] and status["error"] is None
+
+
+def test_manual_scan_failure_is_reported():
+    app = make_app()
+
+    async def broken_scan():
+        raise RuntimeError("키움 응답 없음")
+
+    _stub_scan(app, broken_scan)
+    with TestClient(app) as tc:
+        assert tc.post("/herongs/api/scan").status_code == 202
+        time.sleep(0.2)
+        status = tc.get("/herongs/api/scan").json()
+        assert status["running"] is False and "키움 응답 없음" in status["error"]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, RecItem } from "../api";
+import { api, ApiError, RecItem } from "../api";
 import { ScoreBreakdown } from "./ScoreBreakdown";
 import { OrderDialog } from "./OrderDialog";
 
@@ -20,6 +20,7 @@ export function Dashboard({
   const [items, setItems] = useState<RecItem[]>([]);
   const [ts, setTs] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [orderTarget, setOrderTarget] = useState<RecItem | null>(null);
 
@@ -33,8 +34,19 @@ export function Dashboard({
 
   const runScan = async () => {
     setScanning(true);
+    setScanError(null);
     try {
-      await api.runScan(); // AC-02: 시장 스캔 실행
+      // AC-02: 시장 스캔 실행. 이미 진행 중(409)이면 그 스캔이 끝나기를 기다린다
+      await api.runScan().catch((e) => {
+        if (!(e instanceof ApiError && e.status === 409)) throw e;
+      });
+      // 스캔은 백그라운드로 돈다(수 분) — 끝날 때까지 5초 간격으로 확인 (DCR-005)
+      let status = await api.scanStatus();
+      while (status.running) {
+        await new Promise((r) => setTimeout(r, 5000));
+        status = await api.scanStatus();
+      }
+      if (status.error) setScanError(status.error);
       load(profile);
       onScanned();
     } finally {
@@ -57,6 +69,7 @@ export function Dashboard({
           {scanning ? "스캔 중…" : "시장 스캔 실행"}
         </button>
       </div>
+      {scanError && <div className="card muted">스캔 실패: {scanError}</div>}
       {items.length === 0 && <div className="card muted">추천 없음 — 스캔을 실행해 보세요.</div>}
       {items.map((it) => (
         <div className="card" key={it.code}>

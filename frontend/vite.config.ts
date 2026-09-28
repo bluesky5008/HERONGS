@@ -3,6 +3,8 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // 위키 인증 프록시(yongs-wiki.com/herongs)와 Tailscale 직접 접속이 같은 경로를 쓴다 (DCR-005)
+  base: "/herongs/",
   plugins: [
     react(),
     VitePWA({
@@ -22,6 +24,6 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: { "/api": "http://localhost:8000" },
+    proxy: { "/herongs/api": "http://localhost:8000" },
   },
 });

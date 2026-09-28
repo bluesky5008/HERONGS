@@ -8,8 +8,11 @@ export class ApiError extends Error {
   }
 }
 
+// 빌드 기준 경로(/herongs/). 절대경로 /api는 위키의 /api와 겹친다 (DCR-005)
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(path, {
+  const resp = await fetch(BASE + path, {
     credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     ...init,
@@ -36,7 +39,8 @@ export const api = {
     request<{ profile: string; ts: string | null; items: RecItem[] }>(
       `/api/recommendations?profile=${profile}`,
     ),
-  runScan: () => request("/api/scan", { method: "POST" }),
+  runScan: () => request<{ status: string }>("/api/scan", { method: "POST" }),
+  scanStatus: () => request<ScanStatus>("/api/scan"),
   regime: () => request<Regime>("/api/regime"),
   analysis: (code: string) => request<OpinionItem[]>(`/api/stocks/${code}/analysis`),
   prices: (code: string) => request<Candle[]>(`/api/stocks/${code}/prices`),
@@ -199,4 +203,10 @@ export interface AppSettings {
   max_order_amount: number;
   daily_order_limit: number;
   overrides: Record<string, string>;
+}
+
+export interface ScanStatus {
+  running: boolean;
+  finished_at: string | null;
+  error: string | null;
 }
