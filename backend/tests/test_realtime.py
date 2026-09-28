@@ -22,6 +22,7 @@ class FakeWS:
         self.sent: list[dict] = []
         self.listed = False  # 실서버: CNSRLST 이전 CNSRREQ는 응답이 오지 않는다
         self.cnsr_rows = [{"9001": "A005930"}, {"9001": "A000660"}]
+        self.rows_by_seq: dict[str, list] = {}
 
     async def send(self, raw: str):
         msg = json.loads(raw)
@@ -36,7 +37,13 @@ class FakeWS:
                 "data": [["0", "HERONGS_SWING"], ["1", "HERONGS_SCALP"]],
             }))
         elif t == "CNSRREQ" and msg.get("search_type") == "0" and self.listed:
-            await self.q.put(json.dumps({"trnm": "CNSRREQ", "data": self.cnsr_rows}))
+            # 실서버는 결과 앞에 seq 없는 빈 CNSRREQ를 먼저 보낸다 (2026-09-28 원문 관측)
+            await self.q.put(json.dumps({"trnm": "CNSRREQ"}))
+            seq = msg["seq"]
+            await self.q.put(json.dumps({
+                "trnm": "CNSRREQ", "seq": seq, "return_code": 0,
+                "data": self.rows_by_seq.get(seq, self.cnsr_rows),
+            }))
 
     async def recv(self) -> str:
         return await self.q.get()
@@ -88,6 +95,15 @@ async def test_condition_search_lists_conditions_first(sf, settings):
     assert order.index("CNSRLST") < order.index("CNSRREQ")
     await gw.run_condition("0")  # 세션당 1회만 조회
     assert [m["trnm"] for m in ws.sent].count("CNSRLST") == 1
+    await gw.close()
+
+
+async def test_run_condition_matches_response_by_seq(sf, settings):
+    """빈 선행 메시지를 결과로 받거나 앞 조건식의 결과를 뒤 조건식에 붙이면 안 된다."""
+    gw, ws = make_gateway(sf, settings)
+    ws.rows_by_seq = {"1": [{"9001": "A111111"}], "2": [{"9001": "A222222"}]}
+    assert await gw.run_condition("1") == ["111111"]
+    assert await gw.run_condition("2") == ["222222"]
     await gw.close()
 
 

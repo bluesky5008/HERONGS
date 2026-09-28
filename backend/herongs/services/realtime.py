@@ -81,7 +81,10 @@ class RealtimeGateway:
                         except Exception:
                             log.exception("REAL 처리 실패")
                 else:
-                    fut = self._pending.pop(trnm, None)
+                    key = _pending_key(msg)
+                    if key is None:
+                        continue
+                    fut = self._pending.pop(key, None)
                     if fut and not fut.done():
                         fut.set_result(msg)
         except asyncio.CancelledError:
@@ -109,10 +112,10 @@ class RealtimeGateway:
                 log.warning("재접속 실패: %s", e)
         log.error("WS 재접속 포기 (백오프 소진)")
 
-    async def _request(self, trnm: str, payload: dict) -> dict:
+    async def _request(self, payload: dict) -> dict:
         await self.connect()
         fut = asyncio.get_running_loop().create_future()
-        self._pending[trnm] = fut
+        self._pending[_pending_key(payload)] = fut
         await self._send(payload)
         return await asyncio.wait_for(fut, _REQ_TIMEOUT)
 
@@ -120,7 +123,7 @@ class RealtimeGateway:
 
     async def refresh_conditions(self) -> list[dict]:
         """HTS 등록 조건식 목록(CNSRLST) → condition_map 동기화 (AC-08)."""
-        resp = await self._request("CNSRLST", {"trnm": "CNSRLST"})
+        resp = await self._request({"trnm": "CNSRLST"})
         items = resp.get("data") or []
         with self._sf() as s:
             for entry in items:
@@ -147,7 +150,7 @@ class RealtimeGateway:
     async def run_condition(self, seq: str) -> list[str]:
         """조건검색 일반 실행(CNSRREQ, ka10172) → 종목코드 목록."""
         await self._ensure_conditions()
-        resp = await self._request("CNSRREQ", _cnsr_req(seq, realtime=False))
+        resp = await self._request(_cnsr_req(seq, realtime=False))
         rows = resp.get("data") or []
         codes = []
         for row in rows:
@@ -215,6 +218,18 @@ class RealtimeGateway:
         self._rt_conditions.clear()
         self._registered.clear()
         await self.close()
+
+
+def _pending_key(msg: dict) -> str | None:
+    """요청과 응답을 짝짓는 키. CNSRREQ는 조건식마다 seq로 구분한다.
+
+    실서버는 CNSRREQ 결과 앞에 seq 없는 빈 메시지를 먼저 보낸다(2026-09-28 원문 관측).
+    trnm만으로 짝지으면 그 빈 메시지를 결과로 받고, 진짜 결과는 버리거나 다음 조건식에 붙인다.
+    """
+    trnm = msg.get("trnm", "")
+    if trnm != "CNSRREQ":
+        return trnm
+    return f"CNSRREQ:{msg['seq']}" if "seq" in msg else None
 
 
 def _cnsr_req(seq: str, realtime: bool) -> dict:
