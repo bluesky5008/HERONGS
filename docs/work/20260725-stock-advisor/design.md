@@ -203,6 +203,7 @@ GET  /api/regime, /api/conditions, /api/settings     국면·조건식 매핑·�
 
 - 비밀 정보는 `.env`(gitignore 처리됨)에만 저장. 로그에 키·계좌번호 마스킹.
 - 백엔드는 `0.0.0.0` 바인딩하되 방화벽에서 Tailscale 인터페이스(100.x)와 localhost만 허용. 포트포워딩 금지.
+- **외부 접근은 위키 인증 프록시로(DCR-005, 위키 DCR-010·ADR-011)**: `yongs-wiki.com/herongs/**`는 위키가 로그인·권한(초기 관리자 전용)을 먼저 판정하고 통과한 요청만 `127.0.0.1:8000`으로 넘긴다. HERONGS는 모든 경로를 `/herongs` 아래에서 제공하고(`/`는 리다이렉트, `/healthz`만 루트), 세션 쿠키는 `Path=/herongs`로 좁힌다. PIN 인증은 유지해 위키 로그인 + PIN 이중 확인이 된다.
 - PWA 접속에 간단한 세션 인증(단일 사용자 PIN) 추가 — 가족 공용 기기 오조작 방지.
 - 로그인 시도 제한(DCR-001): 연속 5회 실패 시 300초 전역 잠금(429), 성공 시 카운터 리셋.
   상태는 세션과 동일하게 인메모리(`app.state.login_attempts`). PIN 비교는 `secrets.compare_digest`.
@@ -257,7 +258,8 @@ GET  /api/regime, /api/conditions, /api/settings     국면·조건식 매핑·�
 - 모든 타겟에서 동일한 `docker-compose.yml` 사용: `herongs-backend` 컨테이너 1개(FastAPI + 스케줄러 + WebSocket + PWA 정적 서빙), `restart: unless-stopped`, 헬스체크 포함.
 - 데이터는 호스트 볼륨(`./data/` — SQLite DB, 로그)과 `.env`로 외부화. **타겟 이전 절차 = 컨테이너 중지 → `data/` + `.env` 복사 → 새 타겟에서 `docker compose up -d`.**
 - 노트북(Windows 가정): Docker Desktop + WSL2. 미니PC: Ubuntu + Docker Engine. 이미지는 linux/amd64 단일 타겟.
-- 원격 접속: 각 타겟에 Tailscale 설치, PWA는 Tailscale 주소로만 접근(포트포워딩 금지, §7).
+- 원격 접속: 각 타겟에 Tailscale 설치, PWA는 Tailscale 주소로만 접근(포트포워딩 금지, §7). **2026-09-28부터 외부 주소 `https://yongs-wiki.com/herongs`(위키 인증 프록시)를 주 경로로 쓰고, Tailscale `:8000/herongs/`는 비상 경로로 유지**(DCR-005).
+- 수동 스캔은 백그라운드 실행이다(`POST /herongs/api/scan` → 202, `GET`으로 진행 상태 조회, DCR-005/FR-29). 외부 경로의 Cloudflare 100초 제한 때문이다.
 
 ### 11.3 노트북 운영 수칙 (1차 기간)
 
