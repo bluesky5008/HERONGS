@@ -1,6 +1,6 @@
 # DCR-006: 로컬 우선 백업 — 컨테이너가 NAS를 붙잡지 않게
 
-- 상태: **승인 (2026-09-30)** — 구현 대기
+- 상태: **승인 (2026-09-30)** — 구현·운영 반영 완료(3dc524d, 23:37 재생성). AC-12·AC-28 통과, AC-29(부팅)는 다음 재부팅 때 확인. 작업 기록: homeserver `docs/work/20260928-backup-nas-sync/work-log.md`. **후속 발견**: NAS의 14일 정리가 2026-07-30 이래 실제로는 완료되지 않았음(Docker 경유 삭제가 `.smbdelete*` 잔재로 남음, 50개·2.3GB) → 정리 책임을 NAS 예약 작업으로 옮기는 위키 DCR-014 제안
 - 날짜: 2026-09-28
 - 대상 기준선: requirements.md FR-19·AC-12, design.md §11.2·§11.4, `docker-compose.yml`, 부팅 스크립트(`~/.herongs-boot.sh`)
 - 짝 변경: homeserver 저장소 **DCR-012**(NAS 동기화 작업 신설) · **ADR-013**(백업 전송 구조)
