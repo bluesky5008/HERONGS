@@ -167,6 +167,26 @@ async def test_sync_scalp_realtime_registers_in_hours_stops_after(sf, settings):
     assert gw._rt_conditions == [] and gw._ws is None
 
 
+async def test_scalp_handler_logs_events_and_raw_fields(sf, settings, caplog):
+    """편입 이벤트·실시간 원문·판정 결과를 로그로 남긴다 — 운영에서 scalp 경로가 실제로 도는지,
+    0B에 어떤 필드가 오는지는 로그 없이는 알 수 없다(plan.md scalp 결함 항목)."""
+    gw, ws = make_gateway(sf, settings)
+    await gw.connect()
+    handler = ScalpSignalHandler(gw, sf, notify=None)
+    with caplog.at_level("INFO", logger="herongs.services.realtime"):
+        await handler.on_real({"data": [{
+            "type": "02", "item": "A005930", "values": {"841": "2", "843": "I"},
+        }]})
+        await handler.on_real({"data": [{
+            "type": "0B", "item": "005930",
+            "values": {"10": "+5000", "12": "7.0", "228": "150", "13": "123456"},
+        }]})
+    assert "편입" in caplog.text and "005930" in caplog.text and "seq 2" in caplog.text
+    assert "0B" in caplog.text and "'13': '123456'" in caplog.text  # 원문 필드 전부
+    assert "판정" in caplog.text and "점" in caplog.text
+    await gw.close()
+
+
 async def test_scalp_handler_subscribe_evaluate_release(sf, settings):
     gw, ws = make_gateway(sf, settings)
     await gw.connect()

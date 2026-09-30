@@ -260,16 +260,22 @@ class ScalpSignalHandler:
             values = item.get("values") or {}
             code = str(item.get("item", "")).strip().removeprefix("A")
             if rt_type == "02":  # 조건검색 편입/이탈 (841: seq, 843: I/D)
+                # 운영에서 이 경로가 실제로 도는지는 로그로만 알 수 있다 (plan.md scalp 결함 항목)
+                log.info("scalp %s: %s (seq %s)", "편입" if values.get("843") == "I" else "이탈",
+                         code, values.get("841"))
                 if values.get("843") == "I" and code not in self._watching:
                     self._watching[code] = {}
                     await self._gw.subscribe([code], ["0B", "0D"], grp_no="9")
             elif rt_type == "0B" and code in self._watching:
+                # 원문 필드 전부 — 거래량 배율·거래대금에 쓸 필드 번호를 실응답으로 확정하기 위해
+                log.info("scalp 0B %s: %s", code, values)
                 w = self._watching[code]
                 w["price"] = abs(pnum(values.get("10")))  # 현재가
                 w["change_rate"] = pnum(values.get("12"))  # 등락률
                 w["strength"] = pnum(values.get("228"))  # 체결강도
                 await self._evaluate(code)
             elif rt_type == "0D" and code in self._watching:
+                log.info("scalp 0D %s: %s", code, values)
                 sell_q = pnum(values.get("121"))  # 매도호가총잔량
                 buy_q = pnum(values.get("125"))  # 매수호가총잔량
                 if sell_q > 0:
@@ -294,6 +300,8 @@ class ScalpSignalHandler:
         # 판정 후 즉시 구독 해제 → 등록 한도 관리 (설계 §5.4)
         await self._gw.unsubscribe([code], ["0B", "0D"], grp_no="9")
         del self._watching[code]
+        log.info("scalp 판정 %s: %.1f점 (기준 %.0f) %s", code, score.total, self._min_score,
+                 {k: v["points"] for k, v in score.breakdown.items()})
         if score.total >= self._min_score and self._notify:
             await self._notify("scalp_signal", {
                 "code": code, "score": score.total,
