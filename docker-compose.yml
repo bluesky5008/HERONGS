@@ -9,4 +9,4 @@ services:
     env_file: .env
     volumes:
       - ./data:/app/data # SQLite DB·로그 외부화 (설계 §11.2)
-      - ${HERONGS_BACKUP_MOUNT:-./backup}:/backup # NAS 마운트 시 경로 지정 (FR-19)
+      - ./backup:/backup # 로컬에만 스냅샷 — NAS 전송은 위키의 nas-sync.sh (FR-19, DCR-006)

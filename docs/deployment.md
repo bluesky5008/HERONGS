@@ -73,8 +73,8 @@ docker compose up -d --build
 ## 5. 백업 (FR-19 / AC-12 — **완결**, 2026-07-30)
 
 - 매일 03:00 스케줄러가 `VACUUM INTO` 스냅샷 → `HERONGS_BACKUP_DIR`에 `herongs-YYYYMMDD.db` 전송, 최근 14일 보관. 백업 실패 시 텔레그램 경고 발송
-- 실전송 경로: 컨테이너 `/backup` → 호스트 `/Volumes/backup/herongs`(`.env`의 `HERONGS_BACKUP_MOUNT`) → tailnet 경유 NAS `backup` 공유. 2026-07-30 run_backup 실행으로 NAS에 83MB 스냅샷 생성 확인 (AC-12 통과)
-- NAS 불능 시에도 앱은 기동해야 하므로 부팅 스크립트(§8)가 로컬 `./backup` 폴백을 수행 — 이 경우 03:00 백업은 로컬에 쌓이고, NAS 복구 후 재부팅(또는 스크립트 재실행)으로 NAS 모드 복귀
+- **2026-09-30부터(DCR-006)**: 컨테이너 `/backup` → 호스트 로컬 `./backup`(고정). NAS 전송은 위키 저장소 `ops/nas-sync.sh`(launchd `com.homewiki.nas-sync`, 03:30)가 NAS 재연결 후 도커로 복사한다. `.env`의 `HERONGS_BACKUP_MOUNT`는 더 이상 쓰지 않는다(삭제).
+- ~~종전 경로: 컨테이너 `/backup` → `/Volumes/backup/herongs`(`HERONGS_BACKUP_MOUNT`) → NAS. NAS 불능 시 부팅 스크립트가 로컬 폴백~~ — 컨테이너가 죽은 NAS 마운트를 쥔 채 복구되지 않아(2026-09-25~28 백업 4일 실패) 폐기
 
 ## 6. 타겟 이전 절차
 
@@ -116,7 +116,7 @@ docker compose up -d --build
 | 1 | Docker Desktop cask 설치가 `/usr/local/bin`·`/usr/local/cli-plugins` 생성에 관리자 권한 요구 | 관리자 인증으로 디렉터리 생성 후 설치 (4.84.0) |
 | 2 | **NAS가 백엔드와 다른 인터넷 회선** (공인 IP 상이) — 같은-LAN SMB 가정 불가 | NAS에 Synology Tailscale 패키지 설치 → tailnet 합류(100.123.75.14) → `backup` 공유 신설, SMB는 tailnet 경유만 (plan.md 설계 변경 ⑥) |
 | 3 | Docker Desktop 자동 시작: settings-store.json `AutoStart=true`만으로는 로그인 시 실행 안 됨 (타겟 0의 Windows 자동 시작 실패와 같은 패턴) | macOS 로그인 항목에 Docker.app 등록 |
-| 4 | **부팅 경쟁**: Docker가 NAS 마운트 전에 컨테이너를 띄우다 bind mount 소스 부재로 exit 255, 재시도 없음 | 부팅 복구 스크립트 `~/.herongs-boot.sh` + LaunchAgent `com.herongs.boot.plist`: NAS 도달 대기(445) → 키체인 마운트 → 데몬 대기 → `docker compose up -d`(멱등). NAS 불능 시 `HERONGS_BACKUP_MOUNT`를 로컬 `./backup`으로 폴백해 앱 기동은 보장. 로그 `~/.herongs-boot.log` |
+| 4 | **부팅 경쟁**: Docker가 NAS 마운트 전에 컨테이너를 띄우다 bind mount 소스 부재로 exit 255, 재시도 없음 | 부팅 복구 스크립트 `~/.herongs-boot.sh` + LaunchAgent `com.herongs.boot.plist`: NAS 도달 대기(445) → 키체인 마운트 → 데몬 대기 → `docker compose up -d`(멱등). NAS 불능 시 `HERONGS_BACKUP_MOUNT`를 로컬 `./backup`으로 폴백해 앱 기동은 보장. 로그 `~/.herongs-boot.log`. **2026-09-30(DCR-006)부터 컨테이너가 NAS를 마운트하지 않으므로 이 경쟁 자체가 사라졌다** — 스크립트는 데몬 대기 → `compose up`만 하고, NAS 연결은 사후에 1회 시도만 한다(실패해도 무관, 03:30 nas-sync가 스스로 연결) |
 | 5 | `open smb://`는 키체인에 암호가 있어도 확인 창을 띄움 — 무인 마운트 불가. 도달 불가 상태에서 반복 호출 시 로그인 창 양산 | `osascript -e 'mount volume "smb://user@host/share"'`는 키체인으로 창 없이 마운트. 반드시 445 도달 확인 후 1회만 호출 |
 | 6 | LaunchAgent 기본 PATH에 `/usr/local/bin` 없음 → docker credential 헬퍼 못 찾음 | 스크립트에서 PATH 선두에 추가 |
 | 7 | 재부팅 후 `docker logs`가 새 로그 스트림을 표시하지 않는 경우 있음 | 상태 판단은 healthcheck(`docker inspect`)와 DB `alert_log`(heartbeat sent=1)로 수행 |
